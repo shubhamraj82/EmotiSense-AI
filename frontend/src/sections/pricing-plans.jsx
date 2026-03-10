@@ -6,53 +6,53 @@ import { useRef } from "react";
 export default function PricingPlans() {
     const ref = useRef([]);
     const data = [
-        {
-            icon: RocketIcon,
-            title: 'Starter',
-            description: 'For individuals and small teams',
-            price: '$19',
-            buttonText: 'Get Started',
-            features: [
-                'Up to 10 projects',
-                '10 AI tasks/month',
-                'Basic text generation',
-                'Simple chatbot access',
-                'Email support only',
-                'Community resources'
-            ],
-        },
-        {
-            icon: ZapIcon,
-            title: 'Professional',
-            description: 'For growing teams and startups',
-            price: '$49',
-            mostPopular: true,
-            buttonText: 'Upgrade Now',
-            features: [
-                'Unlimited AI tasks',
-                'API integration',
-                'Text & image outputs',
-                'Priority chat & email support',
-                'Detailed analytics',
-                'Team collaboration'
-            ],
-        },
-        {
-            icon: CrownIcon,
-            title: 'Enterprise',
-            description: 'For enterprises and agencies',
-            price: '$149',
-            buttonText: 'Contact Sales',
-            features: [
-                'Custom AI models',
-                'Team access control',
-                'Dedicated account manager',
-                'Secure private API',
-                'SLA uptime guarantee',
-                '24/7 premium support'
-            ],
-        },
-    ];
+    {
+        icon: RocketIcon,
+        title: 'Basic',
+        description: 'For students and individual users',
+        price: '$9',
+        buttonText: 'Start Session',
+        features: [
+            'Up to 5 video analysis sessions',
+            'Speech tone and pause analysis',
+            'Basic facial emotion detection',
+            'PDF analysis report generation',
+            'Single user access',
+            'Email support'
+        ],
+    },
+    {
+        icon: ZapIcon,
+        title: 'Advanced',
+        description: 'For mentors, educators, and counselors',
+        price: '$29',
+        mostPopular: true,
+        buttonText: 'Upgrade Now',
+        features: [
+            'Up to 25 video analysis sessions',
+            'Advanced speech pattern analysis',
+            'Detailed facial emotion recognition',
+            'Multi-language question support',
+            'Downloadable PDF behavioral reports',
+            'Mentor and parent report access'
+        ],
+    },
+    {
+        icon: CrownIcon,
+        title: 'Professional',
+        description: 'For institutions and organizations',
+        price: '$79',
+        buttonText: 'Contact Us',
+        features: [
+            'Unlimited analysis sessions',
+            'Advanced AI behavioral insights',
+            'Custom question sets for sessions',
+            'Institution dashboard for mentors',
+            'Secure data storage and access control',
+            '24/7 technical support'
+        ],
+    },
+];
 
     return (
         <section className="mt-32">

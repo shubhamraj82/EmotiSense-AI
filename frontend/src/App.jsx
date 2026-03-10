@@ -23,7 +23,7 @@ export default function App() {
             <main className='px-4'>
                 <HeroSection />
                 <TrustedCompanies />
-                <Features />
+                <Features />z
                 <WorkflowSteps />
                 <Testimonials />
                 <FaqSection />

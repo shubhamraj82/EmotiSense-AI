@@ -11,6 +11,18 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*.local
+!.env.example
+.node_modules
+.babelrc
+.eslintrc*
+.prettier*
+*.tsbuildinfo
+coverage
+.cache
+.next
+out 
 
 # Editor directories and files
 .vscode/*

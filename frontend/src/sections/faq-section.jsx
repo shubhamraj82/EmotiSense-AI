@@ -6,30 +6,38 @@ import { motion } from "framer-motion";
 export default function FaqSection() {
     const [isOpen, setIsOpen] = useState(false);
     const data = [
-        {
-            question: 'Do I need coding or design experience to use PrebuiltUI?',
-            answer: "Basic coding knowledge (HTML/CSS, Tailwind) helps, but advanced design skills aren't required. You can use components as-is or customize them.",
-        },
-        {
-            question: 'What is PrebuiltUI and how does it help developers and designers?',
-            answer: 'PrebuiltUI provides ready-to-use, customizable UI components and templates, saving time for developers and designers.',
-        },
-        {
-            question: 'Can I use PrebuiltUI components in my existing project?',
-            answer: 'Yes, components can be integrated into HTML, React, Next.js, Vue, and other projects using Tailwind CSS.',
-        },
-        {
-            question: 'How customizable are the generated components?',
-            answer: 'Components are highly customizable with Tailwind utility classes, theming, and structural adjustments.',
-        },
-        {
-            question: 'Does PrebuiltUI support team collaboration?',
-            answer: "There's no clear documentation on built-in collaboration features. Check their support for team options.",
-        },
-        {
-            question: 'Can I try PrebuiltUI before purchasing a plan?',
-            answer: 'Yes, you can try PrebuiltUI with full access to features.',
-        },
+       {
+    question: 'Do I need technical knowledge to participate in the AI speech and facial analysis session?',
+    answer: "No technical or coding knowledge is required. Users only need to fill out a short pre-session form and respond to questions during the live video session."
+},
+{
+    question: 'What is the AI-Based Speech and Facial Analysis System?',
+    answer: 'It is an AI-powered system that analyzes a user’s speech patterns and facial expressions during a live video question–answer session to understand emotional and behavioral patterns.'
+},
+{
+    question: 'How does the live video question–answer session work?',
+    answer: 'After completing the pre-session form, users enter a live video interaction where questions appear on the screen one by one. The system records video and audio responses for AI-based analysis.'
+},
+{
+    question: 'What kind of analysis does the system perform?',
+    answer: 'The system performs speech analysis to evaluate tone, pauses, and speaking patterns, along with facial emotion recognition to detect expressions and behavioral responses.'
+},
+{
+    question: 'Is my video and audio data secure?',
+    answer: "Yes, all recorded data is securely processed. The generated analysis report is accessible only to authorized individuals such as mentors and parents."
+},
+{
+    question: 'What happens after the session is completed?',
+    answer: 'Once the session ends, the system processes the recorded data and generates a detailed PDF report containing the user’s responses, speech analysis insights, facial emotion detection results, and behavioral observations.'
+},
+{
+    question: 'Can users choose their preferred language for the session?',
+    answer: 'Yes, the system supports multiple languages. Users can select their preferred language in the pre-session form before starting the live video interaction.'
+},
+{
+    question: 'Who can access the final analysis report?',
+    answer: 'The final report is shared only with authorized individuals such as parents and mentors to ensure privacy and responsible use of the insights.'
+},
     ];
 
     return (

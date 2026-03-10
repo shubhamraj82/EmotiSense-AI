@@ -1,0 +1,8 @@
+{
+  "name": "AI Speech & Facial Analysis Setup",
+  "description": "Pre-session setup form for AI-based speech and facial analysis system, collecting user info, preferences, and technical readiness.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
