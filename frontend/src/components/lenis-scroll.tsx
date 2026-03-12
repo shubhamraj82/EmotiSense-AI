@@ -1,16 +1,15 @@
 import { useEffect } from 'react';
 import Lenis from 'lenis';
 
-export default function LenisScroll() {
+export default function LenisScroll(): null {
     useEffect(() => {
         const lenis = new Lenis({
             duration: 1.2,
             smoothWheel: true,
-            smoothTouch: false,
             anchors: true,
         });
 
-        const raf = (time) => {
+        const raf = (time: number) => {
             lenis.raf(time);
             requestAnimationFrame(raf);
         };

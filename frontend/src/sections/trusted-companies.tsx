@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
+import React from "react";
 
-export default function TrustedCompanies() {
-    const logos = [
+export default function TrustedCompanies(): React.ReactElement {
+    const logos: string[] = [
         '/assets/company-logo-1.svg',
         '/assets/company-logo-2.svg',
         '/assets/company-logo-3.svg',

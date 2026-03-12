@@ -2,12 +2,18 @@ import SectionTitle from "../components/section-title";
 import { BotIcon, BrainIcon, ZapIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRef } from "react";
+import type { LucideIcon } from "lucide-react";
+
+interface Feature {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+}
 
 export default function Features() {
+    const refs = useRef<(HTMLDivElement | null)[]>([]);
 
-    const refs = useRef([]);
-
-    const featuresData = [
+    const featuresData: Feature[] = [
         {
             icon: BotIcon,
             title: "Autonomous Agents",
@@ -22,7 +28,7 @@ export default function Features() {
             icon: ZapIcon,
             title: "Real-time Execution",
             description: "Fast responses with async task processing.",
-        }
+        },
     ];
 
     return (
@@ -36,7 +42,9 @@ export default function Features() {
                 {featuresData.map((feature, index) => (
                     <motion.div
                         key={index}
-                        ref={(el) => (refs.current[index] = el)}
+                        ref={(el) => {
+                            refs.current[index] = el;
+                        }}
                         className="hover:-translate-y-0.5 p-6 rounded-xl space-y-4 glass max-w-80 w-full"
                         initial={{ y: 150, opacity: 0 }}
                         whileInView={{ y: 0, opacity: 1 }}
@@ -46,7 +54,7 @@ export default function Features() {
                             type: "spring",
                             stiffness: 320,
                             damping: 70,
-                            mass: 1
+                            mass: 1,
                         }}
                         onAnimationComplete={() => {
                             const card = refs.current[index];

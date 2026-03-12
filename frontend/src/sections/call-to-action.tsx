@@ -1,7 +1,8 @@
 import { ArrowRightIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { JSX } from "react";
 
-export default function CallToAction() {
+export default function CallToAction(): JSX.Element {
     return (
         <motion.div className="flex flex-col max-w-5xl mt-40 px-4 mx-auto items-center justify-center text-center py-16 rounded-xl glass"
             initial={{ y: 150, opacity: 0 }}
@@ -36,4 +37,4 @@ export default function CallToAction() {
             </motion.button>
         </motion.div>
     );
-};
+}

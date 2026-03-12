@@ -58,7 +58,7 @@ export default function WorkflowSteps() {
                         initial={{ y: 150, opacity: 0 }}
                         whileInView={{ y: 0, opacity: 1 }}
                         viewport={{ once: true }}
-                        transition={{ delay: `${index * 0.15}`, type: "spring", stiffness: 320, damping: 70, mass: 1 }}
+                        transition={{ delay: index * 0.15, type: "spring", stiffness: 320, damping: 70, mass: 1 }}
                     >
                         <img src={step.image} alt="step" className="flex-1 h-auto w-full max-w-sm rounded-2xl" />
                         <div key={index} className="flex-1 flex flex-col gap-6 md:px-6 max-w-md">
