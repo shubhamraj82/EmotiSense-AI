@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { JSX } from "react";
+import { Link } from "react-router-dom";
 
 export default function CallToAction(): JSX.Element {
     return (
@@ -33,16 +34,18 @@ export default function CallToAction(): JSX.Element {
                 and detailed PDF reports for mentors and parents.
             </motion.p>
 
-            <motion.button
-                className="btn glass transition-none flex items-center gap-2 mt-8"
+            <motion.div
+                className="mt-8"
                 initial={{ y: 80, opacity: 0 }}
                 whileInView={{ y: 0, opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
             >
-                Start Live Session
-                <ArrowRightIcon className="size-4" />
-            </motion.button>
+                <Link to="/setup" className="btn glass transition-none flex items-center gap-2">
+                    Start Live Session
+                    <ArrowRightIcon className="size-4" />
+                </Link>
+            </motion.div>
         </motion.div>
     );
 }

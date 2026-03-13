@@ -1,48 +1,70 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+const FAQ_RESPONSES: Array<{ keywords: string[]; answer: string }> = [
+  {
+    keywords: ['camera', 'video', 'face'],
+    answer: 'Keep your face visible, centered, and well lit so the session can capture clear video.',
+  },
+  {
+    keywords: ['mic', 'microphone', 'audio', 'voice'],
+    answer: 'Use a quiet space and speak naturally at a steady pace so the microphone can capture your response clearly.',
+  },
+  {
+    keywords: ['record', 'recording', 'privacy', 'consent'],
+    answer: 'This session records the student camera and microphone for analysis only after consent has been accepted in setup.',
+  },
+  {
+    keywords: ['parent', 'mentor', 'report'],
+    answer: 'Parents and mentors receive the final behavioral report based on the permissions selected during setup.',
+  },
+];
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+export type SpeechController = {
+  pause: () => void;
+  onended: (() => void) | null;
+};
 
-export const speakText = async (text: string) => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (base64Audio) {
-      const audioSrc = `data:audio/wav;base64,${base64Audio}`;
-      const audio = new Audio(audioSrc);
-      await audio.play();
-      return audio;
-    }
-  } catch (error) {
-    console.error("Error in TTS:", error);
+export const cancelSpeech = () => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
   }
-  return null;
+};
+
+export const speakText = async (text: string): Promise<SpeechController | null> => {
+  if (!('speechSynthesis' in window)) {
+    return null;
+  }
+
+  cancelSpeech();
+
+  return new Promise((resolve) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+
+    const controller: SpeechController = {
+      onended: null,
+      pause: () => {
+        window.speechSynthesis.cancel();
+      },
+    };
+
+    utterance.onend = () => {
+      controller.onended?.();
+    };
+
+    window.speechSynthesis.speak(utterance);
+    resolve(controller);
+  });
 };
 
 export const askAssistant = async (question: string, context: string) => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Context: ${context}\n\nQuestion: ${question}`,
-      config: {
-        systemInstruction: "You are a helpful AI voice assistant for a speech and facial analysis system. Answer questions briefly and clearly based on the provided instructions. If the question is not related to the instructions, politely redirect the user to the session guidelines.",
-      },
-    });
+  const normalizedQuestion = question.toLowerCase();
+  const matchedEntry = FAQ_RESPONSES.find((entry) =>
+    entry.keywords.some((keyword) => normalizedQuestion.includes(keyword)),
+  );
 
-    return response.text;
-  } catch (error) {
-    console.error("Error in Assistant Chat:", error);
-    return "I'm sorry, I couldn't process that question right now.";
+  if (matchedEntry) {
+    return matchedEntry.answer;
   }
+
+  return `Please follow the session guidelines carefully. ${context}. If you are unsure, stay visible on camera, speak clearly, and continue with the interview.`;
 };

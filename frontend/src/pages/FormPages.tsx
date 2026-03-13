@@ -6,6 +6,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { FormData, initialFormData } from '../lib/types';
 import { Step1BasicInfo } from '../components/Step1BasicInfo';
 import { Step2Preferences } from '../components/Step2Preferences';
@@ -13,6 +14,8 @@ import { Step3EmotionalSurvey } from '../components/Step3EmotionalSurvey';
 import { Step4TechnicalCheck } from '../components/Step4TechnicalCheck';
 import { Step5ConsentContacts } from '../components/Step5ConsentContacts';
 import { Step6Instructions } from '../components/Step6Instructions';
+
+const STORAGE_KEY = 'emotisense-session';
 
 // --- Components ---
 
@@ -40,6 +43,7 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
 };
 
 export default function App() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
@@ -159,7 +163,8 @@ export default function App() {
 
   const handleSubmit = () => {
     if (validateStep()) {
-      alert("Redirecting to Live Video Q&A Session...");
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+      navigate('/interview');
     }
   };
 

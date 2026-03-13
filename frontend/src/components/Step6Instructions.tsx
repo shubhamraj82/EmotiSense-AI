@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Info, AlertCircle, Volume2, VolumeX, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { speakText, askAssistant } from '../service/geminiService';
+import { askAssistant, SpeechController, speakText } from '../service/geminiService';
 
 const INSTRUCTIONS = [
   'Sit in a well-lit environment',
@@ -17,7 +17,7 @@ export const Step6Instructions: React.FC = () => {
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant', text: string }[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<SpeechController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const instructionsText = `Welcome to the final step. Before we begin, please follow these guidelines: 
