@@ -21,6 +21,7 @@ const InputField = ({ label, required, children, error }: { label: string; requi
 
 export const Step1BasicInfo: React.FC<Props> = ({ formData, updateFormData, errors }) => {
   return (
+    
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
