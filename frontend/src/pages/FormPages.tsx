@@ -85,6 +85,9 @@ export default function App() {
     }
 
     if (step === 2) {
+      if (formData.language === 'Other' && !formData.otherLanguage.trim()) {
+        newErrors.otherLanguage = 'Please specify your preferred language';
+      }
       if (!formData.comfortLevel) newErrors.comfortLevel = "Please select your comfort level";
       if (!formData.purpose) newErrors.purpose = "Please select a purpose";
     }

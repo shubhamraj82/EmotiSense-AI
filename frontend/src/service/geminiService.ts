@@ -28,7 +28,22 @@ export const cancelSpeech = () => {
   }
 };
 
-export const speakText = async (text: string): Promise<SpeechController | null> => {
+const getVoiceForLanguage = (lang: string) => {
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) {
+    return null;
+  }
+
+  const exactMatch = voices.find((voice) => voice.lang.toLowerCase() === lang.toLowerCase());
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const prefix = lang.split('-')[0]?.toLowerCase();
+  return voices.find((voice) => voice.lang.toLowerCase().startsWith(prefix)) ?? null;
+};
+
+export const speakText = async (text: string, lang = 'en-US'): Promise<SpeechController | null> => {
   if (!('speechSynthesis' in window)) {
     return null;
   }
@@ -37,6 +52,8 @@ export const speakText = async (text: string): Promise<SpeechController | null> 
 
   return new Promise((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.voice = getVoiceForLanguage(lang);
     utterance.rate = 1;
     utterance.pitch = 1;
 
