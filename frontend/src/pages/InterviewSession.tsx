@@ -4,12 +4,9 @@ import { Camera, Circle, Download, Mic, PauseCircle, PlayCircle, SkipForward, Sq
 import { motion } from 'framer-motion';
 import { FormData, initialFormData } from '../lib/types';
 import { cancelSpeech, speakText } from '../service/geminiService';
-
-type TranscriptEntry = {
-  id: number;
-  question: string;
-  answer: string;
-};
+import { createQuestions, getLanguageConfig, getLanguageLabel } from '../lib/interview';
+import { submitInterviewReport, TranscriptEntry } from '../service/reportService';
+import { fetchInterviewQuestions } from '../service/aiService';
 
 type SpeechRecognitionCtor = new () => SpeechRecognition;
 
@@ -73,23 +70,6 @@ const getRecorderOptions = (): MediaRecorderOptions | undefined => {
   return undefined;
 };
 
-const createQuestions = (formData: FormData) => {
-  const focus = formData.purpose || 'self-reflection';
-  const name = formData.fullName || 'student';
-  const language = formData.otherLanguage || formData.language || 'English';
-
-  return [
-    `Hello ${name}. Please introduce yourself and tell me how you are feeling right now.`,
-    `What motivated you to join this ${focus} session today?`,
-    `Tell me about a recent situation in your studies where you felt proud of yourself.`,
-    `Describe a challenge that has been causing you stress and how you usually respond to it.`,
-    `How comfortable are you expressing your thoughts in ${language}, and what helps you communicate clearly?`,
-    `What kind of support from teachers, mentors, or family helps you perform at your best?`,
-    'If you could improve one habit over the next month, what would it be and why?',
-    'Thank you. Is there anything else you want this assessment to understand about you before we finish?',
-  ];
-};
-
 export default function InterviewSession() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -109,12 +89,18 @@ export default function InterviewSession() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [recordingUrl, setRecordingUrl] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'sent' | 'error'>('idle');
+  const [reportMessage, setReportMessage] = useState('');
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [questionsSource, setQuestionsSource] = useState<'ai' | 'fallback'>('fallback');
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
 
-  const questions = useMemo(() => createQuestions(formData), [formData]);
+  const fallbackQuestions = useMemo(() => createQuestions(formData), [formData]);
+  const languageConfig = useMemo(() => getLanguageConfig(formData), [formData]);
   const currentQuestion = questions[questionIndex] ?? '';
 
   const speakPrompt = async (text: string) => {
-    const controller = await speakText(text);
+    const controller = await speakText(text, languageConfig.speechSynthesisLang);
     if (!controller) {
       return;
     }
@@ -153,6 +139,44 @@ export default function InterviewSession() {
       }
     };
   }, [isInterviewActive, isPaused]);
+
+  useEffect(() => {
+    if (!formData.fullName) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadQuestions = async () => {
+      setIsGeneratingQuestions(true);
+
+      try {
+        const result = await fetchInterviewQuestions(formData);
+        if (!isMounted) {
+          return;
+        }
+
+        setQuestions(result.questions.length > 0 ? result.questions : fallbackQuestions);
+        setQuestionsSource(result.source);
+      } catch (error) {
+        console.error(error);
+        if (isMounted) {
+          setQuestions(fallbackQuestions);
+          setQuestionsSource('fallback');
+        }
+      } finally {
+        if (isMounted) {
+          setIsGeneratingQuestions(false);
+        }
+      }
+    };
+
+    void loadQuestions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fallbackQuestions, formData]);
 
   useEffect(() => {
     const setupMedia = async () => {
@@ -211,7 +235,7 @@ export default function InterviewSession() {
     const recognition = new SpeechRecognitionClass();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = languageConfig.recognitionLang;
 
     recognition.onresult = (event) => {
       let nextTranscript = '';
@@ -258,6 +282,9 @@ export default function InterviewSession() {
     if (!sessionReady || !mediaRecorderRef.current) {
       return;
     }
+    if (questions.length === 0 || isGeneratingQuestions) {
+      return;
+    }
 
     chunksRef.current = [];
     setTranscript([]);
@@ -266,6 +293,8 @@ export default function InterviewSession() {
       setRecordingUrl('');
     }
     setElapsedSeconds(0);
+    setReportStatus('idle');
+    setReportMessage('');
     mediaRecorderRef.current.start(1000);
     setIsRecording(true);
     setIsInterviewActive(true);
@@ -273,29 +302,27 @@ export default function InterviewSession() {
     await askQuestion(0);
   };
 
-  const saveCurrentAnswer = () => {
+  const buildTranscriptSnapshot = () => {
     if (!currentQuestion) {
-      return;
+      return transcript;
     }
 
-    setTranscript((entries) => {
-      const filteredEntries = entries.filter((entry) => entry.id !== questionIndex);
-      return [
-        ...filteredEntries,
-        {
-          id: questionIndex,
-          question: currentQuestion,
-          answer: currentAnswer || 'No answer captured.',
-        },
-      ].sort((left, right) => left.id - right.id);
-    });
+    const filteredEntries = transcript.filter((entry) => entry.id !== questionIndex);
+    return [
+      ...filteredEntries,
+      {
+        id: questionIndex,
+        question: currentQuestion,
+        answer: currentAnswer || languageConfig.noAnswerLabel,
+      },
+    ].sort((left, right) => left.id - right.id);
   };
 
   const handleNextQuestion = async () => {
-    saveCurrentAnswer();
+    setTranscript(buildTranscriptSnapshot());
     const nextIndex = questionIndex + 1;
     if (nextIndex >= questions.length) {
-      handleEndInterview();
+      await handleEndInterview();
       return;
     }
 
@@ -326,14 +353,32 @@ export default function InterviewSession() {
     })();
   };
 
-  const handleEndInterview = () => {
-    saveCurrentAnswer();
+  const handleEndInterview = async () => {
+    const finalizedTranscript = buildTranscriptSnapshot();
+    setTranscript(finalizedTranscript);
     cancelSpeech();
     stopListening();
     mediaRecorderRef.current?.stop();
     setIsInterviewActive(false);
     setIsRecording(false);
     setIsPaused(false);
+
+    setReportStatus('submitting');
+    setReportMessage(languageConfig.finishMessage);
+
+    try {
+      const response = await submitInterviewReport({
+        formData,
+        transcript: finalizedTranscript,
+        durationSeconds: elapsedSeconds,
+      });
+
+      setReportStatus(response.email.sent ? 'sent' : 'error');
+      setReportMessage(response.email.message);
+    } catch (error) {
+      setReportStatus('error');
+      setReportMessage(error instanceof Error ? error.message : 'Failed to send interview report.');
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -401,7 +446,7 @@ export default function InterviewSession() {
               {!isInterviewActive ? (
                 <button
                   onClick={() => void startInterview()}
-                  disabled={!sessionReady || Boolean(cameraError)}
+                  disabled={!sessionReady || Boolean(cameraError) || isGeneratingQuestions || questions.length === 0}
                   className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-500"
                 >
                   <PlayCircle className="size-4" />
@@ -456,6 +501,16 @@ export default function InterviewSession() {
               <p className="mt-3 text-sm text-slate-300">
                 Question {Math.min(questionIndex + 1, questions.length)} of {questions.length}
               </p>
+              <p className="mt-2 text-xs text-slate-400">
+                Interview language: {getLanguageLabel(formData)}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                {isGeneratingQuestions
+                  ? 'Generating personalized AI questions...'
+                  : questionsSource === 'ai'
+                    ? 'Question set generated by AI.'
+                    : 'Using fallback question set.'}
+              </p>
             </div>
 
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
@@ -487,6 +542,19 @@ export default function InterviewSession() {
                   ))
                 )}
               </div>
+            </div>
+
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300">Report delivery</p>
+              <p className={`mt-4 text-sm ${
+                reportStatus === 'sent'
+                  ? 'text-emerald-200'
+                  : reportStatus === 'error'
+                    ? 'text-amber-200'
+                    : 'text-slate-300'
+              }`}>
+                {reportMessage || 'The final interview report will be generated when the session ends and sent to the parent and mentor emails from setup.'}
+              </p>
             </div>
           </section>
         </div>

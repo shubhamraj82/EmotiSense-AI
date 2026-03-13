@@ -35,7 +35,7 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
       </div>
 
       <div className="space-y-6">
-        <InputField label="Preferred Language for Questions">
+        <InputField label="Preferred Language for Questions" required error={errors.otherLanguage}>
           <div className="space-y-3">
             <select
               value={formData.language}

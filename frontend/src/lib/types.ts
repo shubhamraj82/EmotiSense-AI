@@ -1,6 +1,7 @@
 export type Gender = 'Male' | 'Female' | 'Prefer not to say' | 'Other' | '';
 export type ComfortLevel = 'Very Comfortable' | 'Somewhat Comfortable' | 'Not Comfortable' | '';
 export type Duration = '5 minutes' | '10 minutes' | '15 minutes' | '';
+export type SupportedLanguage = 'English' | 'Hindi' | 'Bengali' | 'Other';
 
 export interface FormData {
   // Section 1
@@ -13,7 +14,7 @@ export interface FormData {
   studentId: string;
   
   // Section 2 & 3
-  language: string;
+  language: SupportedLanguage;
   otherLanguage: string;
   comfortLevel: ComfortLevel;
   duration: Duration;
