@@ -1,40 +1,43 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  User, 
-  ChevronRight, 
-  ChevronLeft,
-  CheckCircle2,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { FormData, initialFormData } from '../lib/types';
-import { Step1BasicInfo } from '../components/Step1BasicInfo';
-import { Step2Preferences } from '../components/Step2Preferences';
-import { Step3EmotionalSurvey } from '../components/Step3EmotionalSurvey';
-import { Step4TechnicalCheck } from '../components/Step4TechnicalCheck';
-import { Step5ConsentContacts } from '../components/Step5ConsentContacts';
-import { Step6Instructions } from '../components/Step6Instructions';
+import React, { useState, useEffect, useRef } from "react";
+import { User, ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useLocale } from "../context/LocaleContext";
+import { FormData, initialFormData } from "../lib/types";
+import { Step1BasicInfo } from "../components/Step1BasicInfo";
+import { Step2Preferences } from "../components/Step2Preferences";
+import { Step3EmotionalSurvey } from "../components/Step3EmotionalSurvey";
+import { Step4TechnicalCheck } from "../components/Step4TechnicalCheck";
+import { Step5ConsentContacts } from "../components/Step5ConsentContacts";
+import { Step6Instructions } from "../components/Step6Instructions";
+import SoftBackdrop from "../components/SoftBackdrop";
 
-const STORAGE_KEY = 'emotisense-session';
+const STORAGE_KEY = "emotisense-session";
 
-// --- Components ---
-
-const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) => {
+const ProgressBar = ({
+  currentStep,
+  totalSteps,
+}: {
+  currentStep: number;
+  totalSteps: number;
+}) => {
+  const { t } = useLocale();
+  const pct = Math.round((currentStep / totalSteps) * 100);
   return (
     <div className="w-full mb-8">
       <div className="flex justify-between mb-2">
-        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">
-          Step {currentStep} of {totalSteps}
+        <span className="text-xs font-semibold text-pink-400 uppercase tracking-wider">
+          {t("form.stepOf", { current: currentStep, total: totalSteps })}
         </span>
-        <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">
-          {Math.round((currentStep / totalSteps) * 100)}% Complete
+        <span className="text-xs font-semibold text-pink-400 uppercase tracking-wider">
+          {t("form.percentComplete", { n: pct })}
         </span>
       </div>
-      <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
-        <motion.div 
-          className="h-full bg-indigo-600"
+      <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full bg-gradient-to-r from-pink-700 via-pink-500 to-pink-400 rounded-full"
           initial={{ width: 0 }}
-          animate={{ width: `${(currentStep / totalSteps) * 100}%` }}
+          animate={{ width: `${pct}%` }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
         />
       </div>
@@ -42,69 +45,81 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number; totalSt
   );
 };
 
-export default function App() {
+export default function FormPages() {
   const navigate = useNavigate();
+  const { t } = useLocale();
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
+    {},
+  );
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [permissions, setPermissions] = useState({ camera: false, mic: false });
   const [isCheckingInternet, setIsCheckingInternet] = useState(false);
-  const [internetStatus, setInternetStatus] = useState<'stable' | 'unstable' | 'checking'>('checking');
-  
+  const [internetStatus, setInternetStatus] = useState<
+    "stable" | "unstable" | "checking"
+  >("checking");
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const totalSteps = 6;
 
   const updateFormData = (fields: Partial<FormData>) => {
-    setFormData(prev => ({ ...prev, ...fields }));
-    // Clear error when user types
+    setFormData((prev) => ({ ...prev, ...fields }));
     const keys = Object.keys(fields) as (keyof FormData)[];
     if (keys.length > 0) {
       const newErrors = { ...errors };
-      keys.forEach(key => delete newErrors[key]);
+      keys.forEach((key) => delete newErrors[key]);
       setErrors(newErrors);
     }
   };
 
   const validateStep = () => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
-    
+
     if (step === 1) {
-      if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
+      if (!formData.fullName.trim()) newErrors.fullName = t("errors.fullName");
       if (!formData.email.trim()) {
-        newErrors.email = "Email is required";
+        newErrors.email = t("errors.emailRequired");
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = "Invalid email format";
+        newErrors.email = t("errors.emailInvalid");
       }
       if (!formData.age) {
-        newErrors.age = "Age is required";
+        newErrors.age = t("errors.ageRequired");
       } else if (parseInt(formData.age) <= 10) {
-        newErrors.age = "Age must be above 10";
+        newErrors.age = t("errors.ageMin");
       }
-      if (!formData.institution.trim()) newErrors.institution = "Institution is required";
+      if (!formData.institution.trim())
+        newErrors.institution = t("errors.institution");
     }
 
     if (step === 2) {
-      if (formData.language === 'Other' && !formData.otherLanguage.trim()) {
-        newErrors.otherLanguage = 'Please specify your preferred language';
+      if (formData.language === "Other" && !formData.otherLanguage.trim()) {
+        newErrors.otherLanguage = t("errors.otherLanguage");
       }
-      if (!formData.comfortLevel) newErrors.comfortLevel = "Please select your comfort level";
-      if (!formData.purpose) newErrors.purpose = "Please select a purpose";
+      if (!formData.comfortLevel)
+        newErrors.comfortLevel = t("errors.comfortLevel");
+      if (!formData.purpose) newErrors.purpose = t("errors.purpose");
     }
 
     if (step === 5) {
-      if (!formData.consentRecorded || !formData.consentAnalysis || !formData.consentReport || !formData.consentAccess) {
-        newErrors.consentRecorded = "All consents must be accepted to proceed";
+      if (
+        !formData.consentRecorded ||
+        !formData.consentAnalysis ||
+        !formData.consentReport ||
+        !formData.consentAccess
+      ) {
+        newErrors.consentRecorded = t("errors.consentAll");
       }
       if (!formData.parentEmail.trim()) {
-        newErrors.parentEmail = "Parent email is required";
+        newErrors.parentEmail = t("errors.parentEmailRequired");
       } else if (!/\S+@\S+\.\S+/.test(formData.parentEmail)) {
-        newErrors.parentEmail = "Invalid email format";
+        newErrors.parentEmail = t("errors.emailInvalid");
       }
       if (!formData.mentorEmail.trim()) {
-        newErrors.mentorEmail = "Mentor email is required";
+        newErrors.mentorEmail = t("errors.mentorEmailRequired");
       } else if (!/\S+@\S+\.\S+/.test(formData.mentorEmail)) {
-        newErrors.mentorEmail = "Invalid email format";
+        newErrors.mentorEmail = t("errors.emailInvalid");
       }
     }
 
@@ -114,17 +129,16 @@ export default function App() {
 
   const nextStep = () => {
     if (validateStep()) {
-      setStep(prev => Math.min(prev + 1, totalSteps));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setStep((prev) => Math.min(prev + 1, totalSteps));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   const prevStep = () => {
-    setStep(prev => Math.max(prev - 1, 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Camera logic
   useEffect(() => {
     if (step === 4) {
       requestPermissions();
@@ -136,7 +150,10 @@ export default function App() {
 
   const requestPermissions = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
       setCameraStream(stream);
       setPermissions({ camera: true, mic: true });
       if (videoRef.current) {
@@ -150,16 +167,16 @@ export default function App() {
 
   const stopCamera = () => {
     if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
   };
 
   const checkInternet = () => {
     setIsCheckingInternet(true);
-    setInternetStatus('checking');
+    setInternetStatus("checking");
     setTimeout(() => {
-      setInternetStatus(navigator.onLine ? 'stable' : 'unstable');
+      setInternetStatus(navigator.onLine ? "stable" : "unstable");
       setIsCheckingInternet(false);
     }, 1500);
   };
@@ -167,65 +184,82 @@ export default function App() {
   const handleSubmit = () => {
     if (validateStep()) {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-      navigate('/interview');
+      navigate("/interview");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans text-slate-900">
-      <div className="max-w-3xl mx-auto">
+    <div className="relative min-h-screen bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 font-sans text-white">
+      <SoftBackdrop />
+
+      <div className="max-w-3xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-10">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center justify-center p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 mb-4"
+            className="inline-flex items-center justify-center p-3 bg-pink-600/20 border border-pink-500/30 rounded-2xl shadow-lg shadow-pink-900/40 mb-4"
           >
-            <User className="w-8 h-8 text-white" />
+            <User className="w-8 h-8 text-pink-400" />
           </motion.div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Pre-Session Setup
-          </h1>
-          <p className="mt-3 text-lg text-slate-600 max-w-2xl mx-auto">
-            AI Speech & Facial Analysis System
-          </p>
-          <p className="mt-2 text-sm text-slate-500 max-w-xl mx-auto italic">
-            "Please fill out the following details before starting the live video Q&A session. Your responses will help personalize the experience and generate accurate analysis."
-          </p>
+
+          <motion.h1
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
+          >
+            {t("form.title")}
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mt-3 text-lg text-white/50 max-w-2xl mx-auto"
+          >
+            {t("form.subtitle")}
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mt-2 text-sm text-white/35 max-w-xl mx-auto italic"
+          >
+            &ldquo;{t("form.intro")}&rdquo;
+          </motion.p>
         </div>
 
         {/* Progress Bar */}
         <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-        {/* Form Container */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        {/* Form Card */}
+        <div className="bg-white/[0.04] backdrop-blur-md rounded-3xl border border-white/[0.08] shadow-2xl shadow-black/40 overflow-hidden">
           <div className="p-8 sm:p-10">
             <AnimatePresence mode="wait">
               {step === 1 && (
-                <Step1BasicInfo 
-                  formData={formData} 
-                  updateFormData={updateFormData} 
-                  errors={errors} 
+                <Step1BasicInfo
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  errors={errors}
                 />
               )}
-
               {step === 2 && (
-                <Step2Preferences 
-                  formData={formData} 
-                  updateFormData={updateFormData} 
-                  errors={errors} 
+                <Step2Preferences
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  errors={errors}
                 />
               )}
-
               {step === 3 && (
-                <Step3EmotionalSurvey 
-                  formData={formData} 
-                  updateFormData={updateFormData} 
+                <Step3EmotionalSurvey
+                  formData={formData}
+                  updateFormData={updateFormData}
                 />
               )}
-
               {step === 4 && (
-                <Step4TechnicalCheck 
+                <Step4TechnicalCheck
                   permissions={permissions}
                   internetStatus={internetStatus}
                   isCheckingInternet={isCheckingInternet}
@@ -234,51 +268,50 @@ export default function App() {
                   videoRef={videoRef}
                 />
               )}
-
               {step === 5 && (
-                <Step5ConsentContacts 
-                  formData={formData} 
-                  updateFormData={updateFormData} 
-                  errors={errors} 
+                <Step5ConsentContacts
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  errors={errors}
                 />
               )}
-
-              {step === 6 && (
-                <Step6Instructions />
-              )}
+              {step === 6 && <Step6Instructions />}
             </AnimatePresence>
           </div>
 
           {/* Footer Actions */}
-          <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+          <div className="px-8 py-6 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between">
             <button
               onClick={prevStep}
               disabled={step === 1}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                step === 1 
-                  ? 'text-slate-300 cursor-not-allowed' 
-                  : 'text-slate-600 hover:bg-slate-200'
+                step === 1
+                  ? "text-white/20 cursor-not-allowed"
+                  : "text-white/60 hover:text-white hover:bg-white/10 active:scale-95"
               }`}
             >
               <ChevronLeft size={18} />
-              Back
+              {t("form.back")}
             </button>
 
             {step < totalSteps ? (
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                className="flex items-center gap-2 px-8 py-2.5 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-pink-900/50 transition-all active:scale-95"
               >
-                Next Step
+                {t("form.next")}
                 <ChevronRight size={18} />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
-                className="flex items-center gap-2 px-10 py-3 bg-indigo-600 text-white rounded-xl font-bold text-base hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95 group"
+                className="flex items-center gap-2 px-10 py-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold text-base shadow-xl shadow-pink-900/50 transition-all active:scale-95 group"
               >
-                Start Live Video Q&A Session
-                <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
+                {t("form.startSession")}
+                <CheckCircle2
+                  size={20}
+                  className="group-hover:scale-110 transition-transform"
+                />
               </button>
             )}
           </div>
@@ -286,8 +319,14 @@ export default function App() {
 
         {/* Support Info */}
         <div className="mt-8 text-center">
-          <p className="text-xs text-slate-400 font-medium">
-            Need help? Contact support at <a href="mailto:support@aispeech.ai" className="text-indigo-500 hover:underline">support@aispeech.ai</a>
+          <p className="text-xs text-white/25 font-medium">
+            {t("form.support")}{" "}
+            <a
+              href="mailto:support@aispeech.ai"
+              className="text-pink-400/70 hover:text-pink-400 transition-colors hover:underline"
+            >
+              support@aispeech.ai
+            </a>
           </p>
         </div>
       </div>

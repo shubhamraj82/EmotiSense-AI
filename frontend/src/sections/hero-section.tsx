@@ -60,7 +60,7 @@ export default function HeroSection(): JSX.Element {
                     viewport={{ once: true }}
                     transition={{ type: "spring", stiffness: 320, damping: 70, mass: 1 }}
                 >
-                    <Link to="/setup" className="btn max-md:w-full glass py-3 text-center">
+                    <Link to="/setup/language" className="btn max-md:w-full glass py-3 text-center">
                         Start Live Session
                     </Link>
 

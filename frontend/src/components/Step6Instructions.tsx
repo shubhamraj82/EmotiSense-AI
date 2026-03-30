@@ -1,17 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Info, AlertCircle, Volume2, VolumeX, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocale } from '../context/LocaleContext';
 import { askAssistant, SpeechController, speakText } from '../service/geminiService';
 
-const INSTRUCTIONS = [
+/** English context for the assistant API (stable regardless of UI locale) */
+const INSTRUCTIONS_EN = [
   'Sit in a well-lit environment',
   'Ensure your face is clearly visible to the camera',
   'Speak clearly and naturally',
   'Answer questions honestly',
-  'Avoid background noise'
+  'Avoid background noise',
 ];
 
 export const Step6Instructions: React.FC = () => {
+  const { t } = useLocale();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [question, setQuestion] = useState('');
@@ -20,23 +23,45 @@ export const Step6Instructions: React.FC = () => {
   const audioRef = useRef<SpeechController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const instructionsText = `Welcome to the final step. Before we begin, please follow these guidelines: 
-    First, ${INSTRUCTIONS[0]}. 
-    Second, ${INSTRUCTIONS[1]}. 
-    Third, ${INSTRUCTIONS[2]}. 
-    Fourth, ${INSTRUCTIONS[3]}. 
-    And finally, ${INSTRUCTIONS[4]}. 
-    Do you have any questions about these instructions?`;
+  const instructions = useMemo(
+    () => [
+      t('step6.i1'),
+      t('step6.i2'),
+      t('step6.i3'),
+      t('step6.i4'),
+      t('step6.i5'),
+    ],
+    [t],
+  );
+
+  const instructionsText = useMemo(
+    () =>
+      t('step6.narration', {
+        i1: instructions[0],
+        i2: instructions[1],
+        i3: instructions[2],
+        i4: instructions[3],
+        i5: instructions[4],
+      }),
+    [t, instructions],
+  );
 
   useEffect(() => {
-    // Auto-read instructions when component mounts
-    handleSpeak();
+    let cancelled = false;
+    (async () => {
+      const audio = await speakText(instructionsText);
+      if (cancelled || !audio) return;
+      audioRef.current = audio;
+      setIsSpeaking(true);
+      audio.onended = () => setIsSpeaking(false);
+    })();
     return () => {
+      cancelled = true;
       if (audioRef.current) {
         audioRef.current.pause();
       }
     };
-  }, []);
+  }, [instructionsText]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,11 +93,10 @@ export const Step6Instructions: React.FC = () => {
     setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
     setIsAsking(true);
 
-    const answer = await askAssistant(userMsg, INSTRUCTIONS.join(', '));
+    const answer = await askAssistant(userMsg, INSTRUCTIONS_EN.join(', '));
     setChatHistory(prev => [...prev, { role: 'assistant', text: answer || '' }]);
     setIsAsking(false);
 
-    // Speak the answer
     if (answer) {
       const audio = await speakText(answer);
       if (audio) {
@@ -95,20 +119,22 @@ export const Step6Instructions: React.FC = () => {
           <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
             <Info size={20} />
           </div>
-          <h2 className="text-xl font-semibold">Pre-Session Instructions</h2>
+          <h2 className="text-xl font-semibold">{t('step6.heading')}</h2>
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={handleSpeak}
             className={`p-2 rounded-xl transition-all ${isSpeaking ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            title={isSpeaking ? "Stop Assistant" : "Read Instructions"}
+            title={isSpeaking ? t('step6.titleStop') : t('step6.titleRead')}
           >
             {isSpeaking ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
           <button
+            type="button"
             onClick={() => setShowChat(!showChat)}
             className={`p-2 rounded-xl transition-all ${showChat ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            title="Ask Assistant"
+            title={t('step6.titleAsk')}
           >
             <MessageSquare size={20} />
           </button>
@@ -117,9 +143,9 @@ export const Step6Instructions: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-amber-50 border border-amber-100 rounded-3xl p-8 space-y-6">
-          <h3 className="text-lg font-bold text-amber-900">Session Guidelines:</h3>
+          <h3 className="text-lg font-bold text-amber-900">{t('step6.guidelines')}</h3>
           <ul className="space-y-4">
-            {INSTRUCTIONS.map((instruction, i) => (
+            {instructions.map((instruction, i) => (
               <li key={i} className="flex items-center gap-4 text-amber-800">
                 <div className="flex-shrink-0 w-6 h-6 bg-amber-200 rounded-full flex items-center justify-center text-xs font-bold">
                   {i + 1}
@@ -140,14 +166,14 @@ export const Step6Instructions: React.FC = () => {
             >
               <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">AI Voice Assistant</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{t('step6.chatHeader')}</span>
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-10 text-slate-400">
                     <MessageSquare size={32} className="mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">Ask me anything about the instructions!</p>
+                    <p className="text-sm">{t('step6.chatEmpty')}</p>
                   </div>
                 )}
                 {chatHistory.map((msg, i) => (
@@ -169,7 +195,7 @@ export const Step6Instructions: React.FC = () => {
                   type="text"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask a question..."
+                  placeholder={t('step6.chatPlaceholder')}
                   className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                 />
                 <button
@@ -187,16 +213,17 @@ export const Step6Instructions: React.FC = () => {
                 <AlertCircle size={20} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-indigo-900 mb-1">Ready to start?</h4>
+                <h4 className="text-sm font-bold text-indigo-900 mb-1">{t('step6.readyTitle')}</h4>
                 <p className="text-xs text-indigo-700 leading-relaxed mb-4">
-                  Once you click the button below, the live session will begin. Please ensure you are in a quiet place and ready to interact with the AI assistant.
+                  {t('step6.readyBody')}
                 </p>
                 <button 
+                  type="button"
                   onClick={() => setShowChat(true)}
                   className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
                 >
                   <MessageSquare size={14} />
-                  Ask the assistant a question
+                  {t('step6.askLink')}
                 </button>
               </div>
             </div>

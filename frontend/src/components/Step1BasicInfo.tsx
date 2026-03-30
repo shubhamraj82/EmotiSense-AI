@@ -1,7 +1,8 @@
 import React from 'react';
 import { User } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FormData, initialFormData } from '../lib/types';
+import { motion } from 'framer-motion';
+import { useLocale } from '../context/LocaleContext';
+import { FormData } from '../lib/types';
 
 interface Props {
   formData: FormData;
@@ -20,6 +21,7 @@ const InputField = ({ label, required, children, error }: { label: string; requi
 );
 
 export const Step1BasicInfo: React.FC<Props> = ({ formData, updateFormData, errors }) => {
+  const { t } = useLocale();
   return (
     
     <motion.div
@@ -32,81 +34,81 @@ export const Step1BasicInfo: React.FC<Props> = ({ formData, updateFormData, erro
         <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
           <User size={20} />
         </div>
-        <h2 className="text-xl font-semibold">Basic User Information</h2>
+        <h2 className="text-xl font-semibold">{t('step1.heading')}</h2>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <InputField label="Full Name" required error={errors.fullName}>
+        <InputField label={t('step1.fullName')} required error={errors.fullName}>
           <input
             type="text"
             value={formData.fullName}
             onChange={e => updateFormData({ fullName: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="John Doe"
+            placeholder={t('step1.phFullName')}
           />
         </InputField>
 
-        <InputField label="Age" required error={errors.age}>
+        <InputField label={t('step1.age')} required error={errors.age}>
           <input
             type="number"
             value={formData.age}
             onChange={e => updateFormData({ age: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="25"
+            placeholder={t('step1.phAge')}
           />
         </InputField>
 
-        <InputField label="Gender">
+        <InputField label={t('step1.gender')}>
           <select
             value={formData.gender}
-            onChange={e => updateFormData({ gender: e.target.value as any })}
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none bg-white"
+            onChange={e => updateFormData({ gender: e.target.value as FormData['gender'] })}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 [color-scheme:light] focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
           >
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-            <option value="Prefer not to say">Prefer not to say</option>
+            <option className="bg-white text-slate-900" value="">{t('step1.genderPlaceholder')}</option>
+            <option className="bg-white text-slate-900" value="Male">{t('step1.genderMale')}</option>
+            <option className="bg-white text-slate-900" value="Female">{t('step1.genderFemale')}</option>
+            <option className="bg-white text-slate-900" value="Other">{t('step1.genderOther')}</option>
+            <option className="bg-white text-slate-900" value="Prefer not to say">{t('step1.genderPreferNot')}</option>
           </select>
         </InputField>
 
-        <InputField label="Email Address" required error={errors.email}>
+        <InputField label={t('step1.email')} required error={errors.email}>
           <input
             type="email"
             value={formData.email}
             onChange={e => updateFormData({ email: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="john@example.com"
+            placeholder={t('step1.phEmail')}
           />
         </InputField>
 
-        <InputField label="Phone Number (Optional)">
+        <InputField label={t('step1.phone')}>
           <input
             type="tel"
             value={formData.phone}
             onChange={e => updateFormData({ phone: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="+1 (555) 000-0000"
+            placeholder={t('step1.phPhone')}
           />
         </InputField>
 
-        <InputField label="Institution / School / Organization" required error={errors.institution}>
+        <InputField label={t('step1.institution')} required error={errors.institution}>
           <input
             type="text"
             value={formData.institution}
             onChange={e => updateFormData({ institution: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="University of Technology"
+            placeholder={t('step1.phInstitution')}
           />
         </InputField>
 
-        <InputField label="Student ID (Optional)">
+        <InputField label={t('step1.studentId')}>
           <input
             type="text"
             value={formData.studentId}
             onChange={e => updateFormData({ studentId: e.target.value })}
             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-            placeholder="STU-12345"
+            placeholder={t('step1.phStudentId')}
           />
         </InputField>
       </div>

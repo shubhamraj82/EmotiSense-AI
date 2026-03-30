@@ -1,6 +1,8 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useLocale } from '../context/LocaleContext';
+import type { MessageKey } from '../lib/i18n/translations';
 import { FormData, ComfortLevel, Duration } from '../lib/types';
 
 interface Props {
@@ -20,6 +22,29 @@ const InputField = ({ label, required, children, error }: { label: string; requi
 );
 
 export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, errors }) => {
+  const { t } = useLocale();
+
+  const comfortLevels: { value: ComfortLevel; labelKey: MessageKey }[] = [
+    { value: 'Very Comfortable', labelKey: 'step2.comfortVery' },
+    { value: 'Somewhat Comfortable', labelKey: 'step2.comfortSomewhat' },
+    { value: 'Not Comfortable', labelKey: 'step2.comfortNot' },
+  ];
+
+  const durations: { value: Duration; labelKey: MessageKey }[] = [
+    { value: '5 minutes', labelKey: 'step2.dur5' },
+    { value: '10 minutes', labelKey: 'step2.dur10' },
+    { value: '15 minutes', labelKey: 'step2.dur15' },
+  ];
+
+  const purposes: { value: string; labelKey: MessageKey }[] = [
+    { value: 'Self-assessment', labelKey: 'step2.purposeSelf' },
+    { value: 'Counseling support', labelKey: 'step2.purposeCounseling' },
+    { value: 'Academic evaluation', labelKey: 'step2.purposeAcademic' },
+    { value: 'Behavioral analysis', labelKey: 'step2.purposeBehavioral' },
+    { value: 'Interview preparation', labelKey: 'step2.purposeInterview' },
+    { value: 'Other', labelKey: 'step2.purposeOther' },
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -31,21 +56,22 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
         <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
           <Globe size={20} />
         </div>
-        <h2 className="text-xl font-semibold">Language & Session Preferences</h2>
+        <h2 className="text-xl font-semibold">{t('step2.heading')}</h2>
       </div>
 
       <div className="space-y-6">
-        <InputField label="Preferred Language for Questions" required error={errors.otherLanguage}>
+        <InputField label={t('step2.prefLanguage')} required error={errors.otherLanguage}>
           <div className="space-y-3">
             <select
               value={formData.language}
-              onChange={e => updateFormData({ language: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none bg-white"
+              onChange={e => updateFormData({ language: e.target.value as FormData['language'] })}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 [color-scheme:light] focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
             >
-              <option value="English">English</option>
-              <option value="Hindi">Hindi</option>
-              <option value="Bengali">Bengali</option>
-              <option value="Other">Other</option>
+              <option className="bg-white text-slate-900" value="English">{t('step2.langEnglish')}</option>
+              <option className="bg-white text-slate-900" value="Hindi">{t('step2.langHindi')}</option>
+              <option className="bg-white text-slate-900" value="Bengali">{t('step2.langBengali')}</option>
+              <option className="bg-white text-slate-900" value="Odia">{t('step2.langOdia')}</option>
+              <option className="bg-white text-slate-900" value="Other">{t('step2.langOther')}</option>
             </select>
             {formData.language === 'Other' && (
               <input
@@ -53,19 +79,19 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
                 value={formData.otherLanguage}
                 onChange={e => updateFormData({ otherLanguage: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-                placeholder="Please specify language"
+                placeholder={t('step2.specifyLanguage')}
               />
             )}
           </div>
         </InputField>
 
-        <InputField label="Comfort Level Speaking on Camera" required error={errors.comfortLevel}>
+        <InputField label={t('step2.comfort')} required error={errors.comfortLevel}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {['Very Comfortable', 'Somewhat Comfortable', 'Not Comfortable'].map((level) => (
+            {comfortLevels.map(({ value, labelKey }) => (
               <label 
-                key={level}
+                key={value}
                 className={`flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                  formData.comfortLevel === level 
+                  formData.comfortLevel === value 
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
                     : 'border-slate-100 bg-slate-50 hover:border-slate-200 text-slate-600'
                 }`}
@@ -74,42 +100,35 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
                   type="radio"
                   name="comfortLevel"
                   className="hidden"
-                  value={level}
-                  checked={formData.comfortLevel === level}
-                  onChange={() => updateFormData({ comfortLevel: level as ComfortLevel })}
+                  value={value}
+                  checked={formData.comfortLevel === value}
+                  onChange={() => updateFormData({ comfortLevel: value })}
                 />
-                <span className="text-sm font-medium">{level}</span>
+                <span className="text-sm font-medium">{t(labelKey)}</span>
               </label>
             ))}
           </div>
         </InputField>
 
-        <InputField label="Preferred Session Duration">
+        <InputField label={t('step2.duration')}>
           <select
             value={formData.duration}
             onChange={e => updateFormData({ duration: e.target.value as Duration })}
-            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none bg-white"
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 [color-scheme:light] focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
           >
-            <option value="5 minutes">5 minutes</option>
-            <option value="10 minutes">10 minutes</option>
-            <option value="15 minutes">15 minutes</option>
+            {durations.map(({ value, labelKey }) => (
+              <option className="bg-white text-slate-900" key={value} value={value}>{t(labelKey)}</option>
+            ))}
           </select>
         </InputField>
 
-        <InputField label="Why are you taking this session?" required error={errors.purpose}>
+        <InputField label={t('step2.purposeQ')} required error={errors.purpose}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              'Self-assessment', 
-              'Counseling support', 
-              'Academic evaluation', 
-              'Behavioral analysis', 
-              'Interview preparation', 
-              'Other'
-            ].map((p) => (
+            {purposes.map(({ value, labelKey }) => (
               <label 
-                key={p}
+                key={value}
                 className={`flex items-center p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                  formData.purpose === p 
+                  formData.purpose === value 
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
                     : 'border-slate-100 bg-slate-50 hover:border-slate-200 text-slate-600'
                 }`}
@@ -118,11 +137,11 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
                   type="radio"
                   name="purpose"
                   className="w-4 h-4 text-indigo-600 border-slate-300 focus:ring-indigo-500 mr-3"
-                  value={p}
-                  checked={formData.purpose === p}
-                  onChange={() => updateFormData({ purpose: p })}
+                  value={value}
+                  checked={formData.purpose === value}
+                  onChange={() => updateFormData({ purpose: value })}
                 />
-                <span className="text-sm font-medium">{p}</span>
+                <span className="text-sm font-medium">{t(labelKey)}</span>
               </label>
             ))}
           </div>
@@ -132,7 +151,7 @@ export const Step2Preferences: React.FC<Props> = ({ formData, updateFormData, er
               value={formData.otherPurpose}
               onChange={e => updateFormData({ otherPurpose: e.target.value })}
               className="mt-3 w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
-              placeholder="Please specify purpose"
+              placeholder={t('step2.specifyPurpose')}
             />
           )}
         </InputField>

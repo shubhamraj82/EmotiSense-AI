@@ -3,6 +3,7 @@ import HomePage from "./pages/HomePage";
 import FormPages from "./pages/FormPages";
 import InterviewSession from "./pages/InterviewSession";
 import Login from "./components/login";
+import LanguageSelectPage from "./pages/LanguageSelectPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
@@ -22,6 +23,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
+        <Route
+          path="/language-select"
+          element={
+            <ProtectedRoute>
+              <LanguageSelectPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/setup"
           element={

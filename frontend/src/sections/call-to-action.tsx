@@ -41,7 +41,7 @@ export default function CallToAction(): JSX.Element {
                 viewport={{ once: true }}
                 transition={{ type: "spring", stiffness: 280, damping: 70, mass: 1 }}
             >
-                <Link to="/setup" className="btn glass transition-none flex items-center gap-2">
+                <Link to="/setup/language" className="btn glass transition-none flex items-center gap-2">
                     Start Live Session
                     <ArrowRightIcon className="size-4" />
                 </Link>

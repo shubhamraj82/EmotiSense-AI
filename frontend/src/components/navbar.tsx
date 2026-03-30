@@ -65,7 +65,7 @@ export default function Navbar() {
 
           {isLoggedIn ? (
             <div className="flex items-center gap-4">
-              <Link to="/setup" className="btn glass">
+              <Link to="/language-select" className="btn glass">
                 Get Started
               </Link>
               <div className="flex items-center gap-2 text-sm text-white/80">
@@ -112,7 +112,7 @@ export default function Navbar() {
         {isLoggedIn ? (
           <>
             <Link
-              to="/setup"
+              to="/language-select"
               className="btn glass"
               onClick={() => setIsOpen(false)}
             >
