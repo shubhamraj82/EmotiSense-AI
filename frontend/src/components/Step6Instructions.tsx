@@ -2,7 +2,10 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Info, AlertCircle, Volume2, VolumeX, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocale } from '../context/LocaleContext';
-import { askAssistant, SpeechController, speakText } from '../service/geminiService';
+import { askAssistant } from '../service/geminiService';
+import { FormData, initialFormData } from '../lib/types';
+import { getSarvamLanguageCode } from '../lib/interview';
+import { synthesizeInterviewSpeech } from '../service/sarvamService';
 
 /** English context for the assistant API (stable regardless of UI locale) */
 const INSTRUCTIONS_EN = [
@@ -13,6 +16,8 @@ const INSTRUCTIONS_EN = [
   'Avoid background noise',
 ];
 
+const STORAGE_KEY = 'emotisense-session';
+
 export const Step6Instructions: React.FC = () => {
   const { t } = useLocale();
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -20,8 +25,10 @@ export const Step6Instructions: React.FC = () => {
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant', text: string }[]>([]);
-  const audioRef = useRef<SpeechController | null>(null);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const sarvamLanguageCode = useMemo(() => getSarvamLanguageCode(formData), [formData]);
 
   const instructions = useMemo(
     () => [
@@ -46,14 +53,64 @@ export const Step6Instructions: React.FC = () => {
     [t, instructions],
   );
 
+  const playSarvamSpeech = async (text: string) => {
+    if (!sarvamLanguageCode) {
+      return null;
+    }
+
+    const audioBlob = await synthesizeInterviewSpeech(text, sarvamLanguageCode);
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      if (audioRef.current === audio) {
+        audioRef.current = null;
+      }
+      setIsSpeaking(false);
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      if (audioRef.current === audio) {
+        audioRef.current = null;
+      }
+      setIsSpeaking(false);
+    };
+    await audio.play();
+    return audio;
+  };
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return;
+    }
+
+    try {
+      setFormData(JSON.parse(stored) as FormData);
+    } catch {
+      setFormData(initialFormData);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const audio = await speakText(instructionsText);
-      if (cancelled || !audio) return;
-      audioRef.current = audio;
-      setIsSpeaking(true);
-      audio.onended = () => setIsSpeaking(false);
+      if (!sarvamLanguageCode) {
+        return;
+      }
+
+      try {
+        setIsSpeaking(true);
+        const audio = await playSarvamSpeech(instructionsText);
+        if (cancelled || !audio) {
+          setIsSpeaking(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsSpeaking(false);
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -61,7 +118,7 @@ export const Step6Instructions: React.FC = () => {
         audioRef.current.pause();
       }
     };
-  }, [instructionsText]);
+  }, [instructionsText, sarvamLanguageCode]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -74,12 +131,15 @@ export const Step6Instructions: React.FC = () => {
       return;
     }
 
-    setIsSpeaking(true);
-    const audio = await speakText(instructionsText);
-    if (audio) {
-      audioRef.current = audio;
-      audio.onended = () => setIsSpeaking(false);
-    } else {
+    if (!sarvamLanguageCode) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    try {
+      setIsSpeaking(true);
+      await playSarvamSpeech(instructionsText);
+    } catch {
       setIsSpeaking(false);
     }
   };
@@ -97,12 +157,12 @@ export const Step6Instructions: React.FC = () => {
     setChatHistory(prev => [...prev, { role: 'assistant', text: answer || '' }]);
     setIsAsking(false);
 
-    if (answer) {
-      const audio = await speakText(answer);
-      if (audio) {
-        audioRef.current = audio;
+    if (answer && sarvamLanguageCode) {
+      try {
         setIsSpeaking(true);
-        audio.onended = () => setIsSpeaking(false);
+        await playSarvamSpeech(answer);
+      } catch {
+        setIsSpeaking(false);
       }
     }
   };
