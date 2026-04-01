@@ -5,6 +5,7 @@ export type LanguageConfig = {
   label: string;
   speechSynthesisLang: string;
   recognitionLang: string;
+  sarvamLanguageCode: string | null;
   finishMessage: string;
   noAnswerLabel: string;
   questions: (name: string, focus: string, languageLabel: string) => string[];
@@ -49,6 +50,7 @@ export const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     label: 'English',
     speechSynthesisLang: 'en-US',
     recognitionLang: 'en-US',
+    sarvamLanguageCode: 'en-IN',
     finishMessage: 'Interview complete. Your report is now being prepared and emailed to your parent and mentor.',
     noAnswerLabel: 'No answer captured.',
     questions: englishQuestions,
@@ -58,6 +60,7 @@ export const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     label: 'Hindi',
     speechSynthesisLang: 'hi-IN',
     recognitionLang: 'hi-IN',
+    sarvamLanguageCode: 'hi-IN',
     finishMessage: 'साक्षात्कार पूरा हो गया है। आपकी रिपोर्ट तैयार की जा रही है और अभिभावक तथा मेंटर को ईमेल की जा रही है।',
     noAnswerLabel: 'कोई उत्तर रिकॉर्ड नहीं हुआ।',
     questions: hindiQuestions,
@@ -67,15 +70,27 @@ export const LANGUAGE_CONFIGS: Record<SupportedLanguage, LanguageConfig> = {
     label: 'Bengali',
     speechSynthesisLang: 'bn-IN',
     recognitionLang: 'bn-IN',
+    sarvamLanguageCode: 'bn-IN',
     finishMessage: 'সাক্ষাৎকার সম্পূর্ণ হয়েছে। আপনার রিপোর্ট প্রস্তুত হচ্ছে এবং অভিভাবক ও মেন্টরকে ইমেল করা হচ্ছে।',
     noAnswerLabel: 'কোনো উত্তর ধরা পড়েনি।',
     questions: bengaliQuestions,
+  },
+  Odia: {
+    code: 'Odia',
+    label: 'Odia',
+    speechSynthesisLang: 'or-IN',
+    recognitionLang: 'or-IN',
+    sarvamLanguageCode: 'od-IN',
+    finishMessage: 'Interview complete. Your report is now being prepared and emailed to your parent and mentor.',
+    noAnswerLabel: 'No answer captured.',
+    questions: englishQuestions,
   },
   Other: {
     code: 'Other',
     label: 'Other',
     speechSynthesisLang: 'en-US',
     recognitionLang: 'en-US',
+    sarvamLanguageCode: null,
     finishMessage: 'Interview complete. Your report is now being prepared and emailed to your parent and mentor.',
     noAnswerLabel: 'No answer captured.',
     questions: englishQuestions,
@@ -92,6 +107,10 @@ export const getLanguageLabel = (formData: FormData) => {
   }
 
   return getLanguageConfig(formData).label;
+};
+
+export const getSarvamLanguageCode = (formData: FormData) => {
+  return getLanguageConfig(formData).sarvamLanguageCode;
 };
 
 export const createQuestions = (formData: FormData) => {

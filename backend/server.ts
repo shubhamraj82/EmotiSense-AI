@@ -7,6 +7,7 @@ import MongoStore from "connect-mongo";
 import AuthRouter from "./routes/AuthRoute.js";
 import ReportRouter from "./routes/ReportRoute.js";
 import AiRouter from "./routes/AiRoute.js";
+import SarvamRouter from "./routes/SarvamRoute.js";
 
 declare module 'express-session' {
    interface SessionData {
@@ -49,6 +50,7 @@ app.use(cors({
 
  app.use('/api/auth', AuthRouter);
  app.use('/api/ai', AiRouter);
+ app.use('/api/sarvam', SarvamRouter);
  app.use('/api/reports', ReportRouter);
 
  app.listen(port,()=>{

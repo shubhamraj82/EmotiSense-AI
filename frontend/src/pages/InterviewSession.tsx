@@ -3,54 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Camera, Circle, Download, Mic, PauseCircle, PlayCircle, SkipForward, Square, Volume2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { FormData, initialFormData } from '../lib/types';
-import { cancelSpeech, speakText } from '../service/geminiService';
-import { createQuestions, getLanguageConfig, getLanguageLabel } from '../lib/interview';
+import { cancelSpeech } from '../service/geminiService';
+import { createQuestions, getLanguageConfig, getLanguageLabel, getSarvamLanguageCode } from '../lib/interview';
 import { submitInterviewReport, TranscriptEntry } from '../service/reportService';
 import { fetchInterviewQuestions } from '../service/aiService';
-
-type SpeechRecognitionCtor = new () => SpeechRecognition;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionCtor;
-    webkitSpeechRecognition?: SpeechRecognitionCtor;
-  }
-
-  interface SpeechRecognition extends EventTarget {
-    continuous: boolean;
-    interimResults: boolean;
-    lang: string;
-    onresult: ((event: SpeechRecognitionEvent) => void) | null;
-    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-    onend: (() => void) | null;
-    start(): void;
-    stop(): void;
-  }
-
-  interface SpeechRecognitionEvent {
-    resultIndex: number;
-    results: SpeechRecognitionResultList;
-  }
-
-  interface SpeechRecognitionErrorEvent {
-    error: string;
-  }
-
-  interface SpeechRecognitionResultList {
-    [index: number]: SpeechRecognitionResult;
-    length: number;
-  }
-
-  interface SpeechRecognitionResult {
-    [index: number]: SpeechRecognitionAlternative;
-    isFinal: boolean;
-    length: number;
-  }
-
-  interface SpeechRecognitionAlternative {
-    transcript: string;
-  }
-}
+import { synthesizeInterviewSpeech, transcribeInterviewAnswer } from '../service/sarvamService';
 
 const STORAGE_KEY = 'emotisense-session';
 
@@ -70,13 +27,31 @@ const getRecorderOptions = (): MediaRecorderOptions | undefined => {
   return undefined;
 };
 
+const getAudioRecorderOptions = (): MediaRecorderOptions | undefined => {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+    return undefined;
+  }
+
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    return { mimeType: 'audio/webm;codecs=opus' };
+  }
+
+  if (MediaRecorder.isTypeSupported('audio/webm')) {
+    return { mimeType: 'audio/webm' };
+  }
+
+  return undefined;
+};
+
 export default function InterviewSession() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const answerRecorderRef = useRef<MediaRecorder | null>(null);
+  const currentAnswerChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [sessionReady, setSessionReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -94,19 +69,53 @@ export default function InterviewSession() {
   const [questions, setQuestions] = useState<string[]>([]);
   const [questionsSource, setQuestionsSource] = useState<'ai' | 'fallback'>('fallback');
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
+  const [isTranscribingAnswer, setIsTranscribingAnswer] = useState(false);
+  const [speechError, setSpeechError] = useState('');
 
   const fallbackQuestions = useMemo(() => createQuestions(formData), [formData]);
   const languageConfig = useMemo(() => getLanguageConfig(formData), [formData]);
+  const sarvamLanguageCode = useMemo(() => getSarvamLanguageCode(formData), [formData]);
   const currentQuestion = questions[questionIndex] ?? '';
 
   const speakPrompt = async (text: string) => {
-    const controller = await speakText(text, languageConfig.speechSynthesisLang);
-    if (!controller) {
+    if (!sarvamLanguageCode) {
       return;
     }
 
     await new Promise<void>((resolve) => {
-      controller.onended = () => resolve();
+      void (async () => {
+        try {
+          setSpeechError('');
+          currentAudioRef.current?.pause();
+          const audioBlob = await synthesizeInterviewSpeech(text, sarvamLanguageCode);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          currentAudioRef.current = audio;
+
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            if (currentAudioRef.current === audio) {
+              currentAudioRef.current = null;
+            }
+            resolve();
+          };
+
+          audio.onerror = () => {
+            URL.revokeObjectURL(audioUrl);
+            if (currentAudioRef.current === audio) {
+              currentAudioRef.current = null;
+            }
+            setSpeechError('Sarvam voice playback failed for this question.');
+            resolve();
+          };
+
+          await audio.play();
+        } catch (error) {
+          console.error(error);
+          setSpeechError('Sarvam voice playback failed for this question.');
+          resolve();
+        }
+      })();
     });
   };
 
@@ -200,6 +209,8 @@ export default function InterviewSession() {
         };
 
         mediaRecorderRef.current = recorder;
+        const audioStream = new MediaStream(stream.getAudioTracks());
+        answerRecorderRef.current = new MediaRecorder(audioStream, getAudioRecorderOptions());
         setSessionReady(true);
       } catch (error) {
         console.error(error);
@@ -211,7 +222,7 @@ export default function InterviewSession() {
 
     return () => {
       cancelSpeech();
-      recognitionRef.current?.stop();
+      currentAudioRef.current?.pause();
       mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
@@ -226,41 +237,62 @@ export default function InterviewSession() {
   }, [recordingUrl]);
 
   const startListening = () => {
-    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionClass) {
+    if (!answerRecorderRef.current) {
+      return;
+    }
+    if (answerRecorderRef.current.state !== 'inactive') {
       return;
     }
 
-    recognitionRef.current?.stop();
-    const recognition = new SpeechRecognitionClass();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = languageConfig.recognitionLang;
-
-    recognition.onresult = (event) => {
-      let nextTranscript = '';
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        nextTranscript += event.results[index][0].transcript;
+    currentAnswerChunksRef.current = [];
+    answerRecorderRef.current.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        currentAnswerChunksRef.current.push(event.data);
       }
-      setCurrentAnswer(nextTranscript.trim());
     };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
+    answerRecorderRef.current.start();
     setIsListening(true);
+    setCurrentAnswer('Listening for student response...');
   };
 
   const stopListening = () => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
+    if (!answerRecorderRef.current || answerRecorderRef.current.state === 'inactive') {
+      setIsListening(false);
+      return Promise.resolve<Blob | null>(null);
+    }
+
+    return new Promise<Blob | null>((resolve) => {
+      const recorder = answerRecorderRef.current;
+      recorder.onstop = () => {
+        setIsListening(false);
+        const mimeType = currentAnswerChunksRef.current[0]?.type || 'audio/webm';
+        resolve(currentAnswerChunksRef.current.length > 0 ? new Blob(currentAnswerChunksRef.current, { type: mimeType }) : null);
+      };
+      recorder.stop();
+    });
+  };
+
+  const transcribeCurrentAnswer = async () => {
+    const audioBlob = await stopListening();
+    if (!audioBlob || !sarvamLanguageCode) {
+      return currentAnswer.trim();
+    }
+
+    setIsTranscribingAnswer(true);
+    setCurrentAnswer('Transcribing response...');
+
+    try {
+      const result = await transcribeInterviewAnswer(audioBlob, sarvamLanguageCode);
+      const answer = result.transcript?.trim() || '';
+      setCurrentAnswer(answer || languageConfig.noAnswerLabel);
+      return answer;
+    } catch (error) {
+      console.error(error);
+      setCurrentAnswer(languageConfig.noAnswerLabel);
+      return '';
+    } finally {
+      setIsTranscribingAnswer(false);
+    }
   };
 
   const askQuestion = async (index: number) => {
@@ -271,9 +303,9 @@ export default function InterviewSession() {
 
     setQuestionIndex(index);
     setCurrentAnswer('');
-    stopListening();
+    await stopListening();
     await speakPrompt(question);
-    if (!isPaused) {
+    if (!isPaused && sarvamLanguageCode) {
       startListening();
     }
   };
@@ -302,7 +334,7 @@ export default function InterviewSession() {
     await askQuestion(0);
   };
 
-  const buildTranscriptSnapshot = () => {
+  const buildTranscriptSnapshot = (answerOverride?: string) => {
     if (!currentQuestion) {
       return transcript;
     }
@@ -313,13 +345,14 @@ export default function InterviewSession() {
       {
         id: questionIndex,
         question: currentQuestion,
-        answer: currentAnswer || languageConfig.noAnswerLabel,
+        answer: answerOverride || currentAnswer || languageConfig.noAnswerLabel,
       },
     ].sort((left, right) => left.id - right.id);
   };
 
   const handleNextQuestion = async () => {
-    setTranscript(buildTranscriptSnapshot());
+    const answer = await transcribeCurrentAnswer();
+    setTranscript(buildTranscriptSnapshot(answer));
     const nextIndex = questionIndex + 1;
     if (nextIndex >= questions.length) {
       await handleEndInterview();
@@ -339,7 +372,8 @@ export default function InterviewSession() {
 
     if (nextPaused) {
       cancelSpeech();
-      stopListening();
+      currentAudioRef.current?.pause();
+      void stopListening();
       mediaRecorderRef.current?.pause();
       setIsRecording(false);
       return;
@@ -349,15 +383,18 @@ export default function InterviewSession() {
     setIsRecording(true);
     void (async () => {
       await speakPrompt(`Continuing session. ${currentQuestion}`);
-      startListening();
+      if (sarvamLanguageCode) {
+        startListening();
+      }
     })();
   };
 
   const handleEndInterview = async () => {
-    const finalizedTranscript = buildTranscriptSnapshot();
+    const answer = await transcribeCurrentAnswer();
+    const finalizedTranscript = buildTranscriptSnapshot(answer);
     setTranscript(finalizedTranscript);
     cancelSpeech();
-    stopListening();
+    currentAudioRef.current?.pause();
     mediaRecorderRef.current?.stop();
     setIsInterviewActive(false);
     setIsRecording(false);
@@ -446,7 +483,7 @@ export default function InterviewSession() {
               {!isInterviewActive ? (
                 <button
                   onClick={() => void startInterview()}
-                  disabled={!sessionReady || Boolean(cameraError) || isGeneratingQuestions || questions.length === 0}
+                  disabled={!sessionReady || Boolean(cameraError) || isGeneratingQuestions || questions.length === 0 || !sarvamLanguageCode}
                   className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-500"
                 >
                   <PlayCircle className="size-4" />
@@ -504,6 +541,14 @@ export default function InterviewSession() {
               <p className="mt-2 text-xs text-slate-400">
                 Interview language: {getLanguageLabel(formData)}
               </p>
+              {!sarvamLanguageCode && (
+                <p className="mt-2 text-xs text-amber-300">
+                  Voice interview is available for English, Hindi, Bengali, and Odia.
+                </p>
+              )}
+              {speechError && (
+                <p className="mt-2 text-xs text-amber-300">{speechError}</p>
+              )}
               <p className="mt-2 text-xs text-slate-500">
                 {isGeneratingQuestions
                   ? 'Generating personalized AI questions...'
@@ -520,11 +565,11 @@ export default function InterviewSession() {
                   <p className="text-xs font-semibold uppercase tracking-[0.3em]">Student response</p>
                 </div>
                 <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isListening ? 'bg-emerald-400/15 text-emerald-200' : 'bg-white/10 text-slate-300'}`}>
-                  {isListening ? 'Listening' : 'Waiting'}
+                  {isTranscribingAnswer ? 'Transcribing' : isListening ? 'Listening' : 'Waiting'}
                 </div>
               </div>
               <div className="mt-4 min-h-40 rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-sm leading-6 text-slate-200">
-                {currentAnswer || 'The browser will capture live transcript here when speech recognition is supported.'}
+                {currentAnswer || 'Sarvam will capture and transcribe the student response here after each answer.'}
               </div>
             </div>
 
