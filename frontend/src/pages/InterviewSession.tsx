@@ -165,7 +165,7 @@ export default function InterviewSession() {
           return;
         }
 
-        setQuestions(result.questions.length > 0 ? result.questions : fallbackQuestions);
+        setQuestions(result.source === 'ai' && result.questions.length > 0 ? result.questions : fallbackQuestions);
         setQuestionsSource(result.source);
       } catch (error) {
         console.error(error);

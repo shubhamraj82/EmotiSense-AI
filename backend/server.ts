@@ -43,7 +43,7 @@ app.use(cors({
  }))
 
   const port=process.env.PORT ||5000;
-   app.use(express.json());
+   app.use(express.json({ limit: '20mb' }));
  app.get('/',(req:Request,res:Response)=>{
     res.send('Server is running');
  });
