@@ -11,8 +11,19 @@ export const fetchInterviewQuestions = async (formData: FormData) => {
     },
     body: JSON.stringify({
       fullName: formData.fullName,
+      age: formData.age,
+      gender: formData.gender,
+      institution: formData.institution,
+      studentId: formData.studentId,
       purpose: formData.otherPurpose || formData.purpose,
       language: getLanguageLabel(formData),
+      comfortLevel: formData.comfortLevel,
+      duration: formData.duration,
+      stressLevel: formData.stressLevel,
+      confidenceLevel: formData.confidenceLevel,
+      personalComfortLevel: formData.personalComfortLevel,
+      parentName: formData.parentName,
+      mentorName: formData.mentorName,
     }),
   });
 

@@ -3,9 +3,9 @@ type ChatMessage = {
   content: string;
 };
 
-const AI_API_URL = process.env.AI_API_URL || 'https://api.openai.com/v1/chat/completions';
-const AI_MODEL = process.env.AI_MODEL || 'gpt-4o-mini';
-const AI_API_KEY = process.env.AI_API_KEY;
+const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
 
 const extractJson = <T>(content: string): T => {
   const trimmed = content.trim();
@@ -21,24 +21,43 @@ const extractJson = <T>(content: string): T => {
   }
 };
 
-export const isAiConfigured = () => Boolean(AI_API_KEY);
+export const isAiConfigured = () => Boolean(CLAUDE_API_KEY);
 
 export const generateJsonFromAi = async <T>(messages: ChatMessage[]) => {
-  if (!AI_API_KEY) {
-    throw new Error('AI_API_KEY is not configured.');
+  if (!CLAUDE_API_KEY) {
+    throw new Error('CLAUDE_API_KEY is not configured.');
   }
 
-  const response = await fetch(AI_API_URL, {
+  const systemPrompt = messages
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join('\n\n');
+
+  const userPrompt = messages
+    .filter((message) => message.role === 'user')
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join('\n\n');
+
+  const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${AI_API_KEY}`,
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model: CLAUDE_MODEL,
       temperature: 0.4,
-      response_format: { type: 'json_object' },
-      messages,
+      max_tokens: 1024,
+      system: systemPrompt || undefined,
+      messages: [
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
     }),
   });
 
@@ -48,14 +67,18 @@ export const generateJsonFromAi = async <T>(messages: ChatMessage[]) => {
   }
 
   const data = (await response.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string;
-      };
+    content?: Array<{
+      type?: string;
+      text?: string;
     }>;
   };
 
-  const content = data.choices?.[0]?.message?.content;
+  const content = data.content
+    ?.filter((entry) => entry.type === 'text' && typeof entry.text === 'string')
+    .map((entry) => entry.text?.trim() || '')
+    .filter(Boolean)
+    .join('\n');
+
   if (!content) {
     throw new Error('AI response did not include content.');
   }
