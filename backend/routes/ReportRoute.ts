@@ -11,7 +11,10 @@ type TranscriptEntry = {
 type InterviewRequestBody = {
   formData: {
     fullName: string;
+    age?: string;
+    gender?: string;
     institution: string;
+    studentId?: string;
     language: string;
     otherLanguage?: string;
     purpose: string;
@@ -19,6 +22,7 @@ type InterviewRequestBody = {
     comfortLevel: string;
     stressLevel: number;
     confidenceLevel: number;
+    personalComfortLevel?: number;
     parentName?: string;
     parentEmail: string;
     mentorName?: string;
@@ -26,6 +30,29 @@ type InterviewRequestBody = {
   };
   transcript: TranscriptEntry[];
   durationSeconds: number;
+};
+
+type InterviewReport = {
+  student: {
+    name: string;
+    institution: string;
+    preferredLanguage: string;
+    purpose: string;
+  };
+  summary: string;
+  strengths: string[];
+  concerns: string[];
+  actionItems: string[];
+  engagementScore: number;
+  emotionalSignals: {
+    stressLevel: number;
+    confidenceLevel: number;
+    cameraComfort: string;
+  };
+  communicationStyle: string;
+  emotionalOverview: string;
+  followUpPriority: 'low' | 'medium' | 'high';
+  transcript: TranscriptEntry[];
 };
 
 const ReportRouter = Router();
@@ -87,7 +114,7 @@ const extractThemes = (answers: string[]) => {
   return { strengths, concerns, actionItems };
 };
 
-const buildSummary = (body: InterviewRequestBody) => {
+const buildSummary = (body: InterviewRequestBody): InterviewReport => {
   const { formData, transcript, durationSeconds } = body;
   const answers = transcript.map((entry) => entry.answer.trim()).filter(Boolean);
   const totalWords = answers.reduce((sum, answer) => sum + answer.split(/\s+/).filter(Boolean).length, 0);
@@ -119,11 +146,22 @@ const buildSummary = (body: InterviewRequestBody) => {
       confidenceLevel: formData.confidenceLevel,
       cameraComfort: formData.comfortLevel,
     },
+    communicationStyle:
+      totalWords > 120
+        ? 'The student gave relatively detailed responses and appeared willing to elaborate on personal experiences.'
+        : 'The student gave concise responses. Follow-up conversation may help uncover more detail and context.',
+    emotionalOverview:
+      formData.stressLevel >= 4
+        ? 'Self-reported stress is elevated and should be reviewed with a mentor or parent in the near term.'
+        : formData.confidenceLevel <= 2
+          ? 'The student reported lower confidence, suggesting a need for supportive follow-up and reassurance.'
+          : 'The student’s self-reported emotional indicators do not suggest an immediate high-risk concern from this session alone.',
+    followUpPriority: formData.stressLevel >= 4 || formData.confidenceLevel <= 2 ? 'high' : totalWords < 40 ? 'medium' : 'low',
     transcript,
   };
 };
 
-const buildAiReport = async (body: InterviewRequestBody) => {
+const buildAiReport = async (body: InterviewRequestBody): Promise<InterviewReport> => {
   const { formData, transcript, durationSeconds } = body;
   const preferredLanguage = formatLanguage(formData.language, formData.otherLanguage);
   const purpose = getPurposeLabel(formData.purpose, formData.otherPurpose);
@@ -134,23 +172,30 @@ const buildAiReport = async (body: InterviewRequestBody) => {
     concerns: string[];
     actionItems: string[];
     engagementScore: number;
+    communicationStyle: string;
+    emotionalOverview: string;
+    followUpPriority: 'low' | 'medium' | 'high';
   }>([
     {
       role: 'system',
       content:
-        'You write concise student interview reports for parents and mentors. Return JSON only with keys: summary, strengths, concerns, actionItems, engagementScore. strengths, concerns, and actionItems must each contain exactly 3 short bullet strings. engagementScore must be an integer from 0 to 100. Write the report in English.',
+        'You write concise but thoughtful student interview analysis reports for parents and mentors. Return JSON only with keys: summary, strengths, concerns, actionItems, engagementScore, communicationStyle, emotionalOverview, followUpPriority. strengths, concerns, and actionItems must each contain exactly 3 short bullet strings. engagementScore must be an integer from 0 to 100. followUpPriority must be one of: low, medium, high. Do not diagnose mental health conditions. Use careful, non-alarmist language. Base the report only on the form data and transcript. Write the report in English.',
     },
     {
       role: 'user',
       content: JSON.stringify({
         student: {
           name: formData.fullName,
+          age: formData.age,
+          gender: formData.gender,
           institution: formData.institution,
+          studentId: formData.studentId,
           preferredLanguage,
           purpose,
           comfortLevel: formData.comfortLevel,
           stressLevel: formData.stressLevel,
           confidenceLevel: formData.confidenceLevel,
+          personalComfortLevel: formData.personalComfortLevel,
         },
         durationSeconds,
         transcript,
@@ -169,6 +214,12 @@ const buildAiReport = async (body: InterviewRequestBody) => {
     engagementScore:
       typeof data.engagementScore === 'number' ? Math.max(0, Math.min(100, Math.round(data.engagementScore))) : fallback.engagementScore,
     emotionalSignals: fallback.emotionalSignals,
+    communicationStyle: data.communicationStyle || fallback.communicationStyle,
+    emotionalOverview: data.emotionalOverview || fallback.emotionalOverview,
+    followUpPriority:
+      data.followUpPriority === 'low' || data.followUpPriority === 'medium' || data.followUpPriority === 'high'
+        ? data.followUpPriority
+        : fallback.followUpPriority,
     transcript,
   };
 };
@@ -195,7 +246,7 @@ const getTransporter = () => {
 };
 
 const buildEmailHtml = (
-  report: ReturnType<typeof buildSummary>,
+  report: InterviewReport,
   parentName?: string,
   mentorName?: string,
 ) => `
@@ -210,6 +261,12 @@ const buildEmailHtml = (
     <ul>${report.concerns.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
     <h3>Recommended Next Steps</h3>
     <ul>${report.actionItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+    <h3>Communication Style</h3>
+    <p>${escapeHtml(report.communicationStyle)}</p>
+    <h3>Emotional Overview</h3>
+    <p>${escapeHtml(report.emotionalOverview)}</p>
+    <h3>Follow-up Priority</h3>
+    <p style="text-transform: capitalize;">${escapeHtml(report.followUpPriority)}</p>
     <h3>Emotional Signals</h3>
     <p>Stress Level: ${report.emotionalSignals.stressLevel}/5<br />Confidence Level: ${report.emotionalSignals.confidenceLevel}/5<br />Camera Comfort: ${escapeHtml(report.emotionalSignals.cameraComfort)}</p>
   </div>
@@ -228,7 +285,7 @@ ReportRouter.post('/interview', async (req: Request, res: Response) => {
     return;
   }
 
-  let report = buildSummary(body);
+  let report: InterviewReport = buildSummary(body);
 
   if (isAiConfigured()) {
     try {
@@ -272,6 +329,14 @@ ReportRouter.post('/interview', async (req: Request, res: Response) => {
         '',
         'Recommended Next Steps:',
         ...report.actionItems.map((item) => `- ${item}`),
+        '',
+        'Communication Style:',
+        report.communicationStyle,
+        '',
+        'Emotional Overview:',
+        report.emotionalOverview,
+        '',
+        `Follow-up Priority: ${report.followUpPriority}`,
       ].join('\n'),
     });
 

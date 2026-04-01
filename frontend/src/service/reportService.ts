@@ -24,6 +24,9 @@ export type InterviewReportResponse = {
       confidenceLevel: number;
       cameraComfort: string;
     };
+    communicationStyle: string;
+    emotionalOverview: string;
+    followUpPriority: 'low' | 'medium' | 'high';
     transcript: TranscriptEntry[];
   };
   email: {
