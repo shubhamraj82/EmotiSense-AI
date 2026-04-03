@@ -27,17 +27,18 @@ export const fetchInterviewQuestions = async (formData: FormData) => {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error('Failed to generate interview questions.');
-  }
-
   const data = (await response.json()) as {
     questions?: string[];
-    source?: 'sarvam' | 'fallback';
+    source?: 'sarvam';
+    error?: string;
   };
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to generate interview questions.');
+  }
 
   return {
     questions: Array.isArray(data.questions) ? data.questions : [],
-    source: data.source ?? 'fallback',
+    source: data.source ?? 'sarvam',
   };
 };
