@@ -1,3 +1,5 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000';
+
 const FAQ_RESPONSES: Array<{ keywords: string[]; answer: string }> = [
   {
     keywords: ['camera', 'video', 'face'],
@@ -17,63 +19,13 @@ const FAQ_RESPONSES: Array<{ keywords: string[]; answer: string }> = [
   },
 ];
 
-export type SpeechController = {
-  pause: () => void;
-  onended: (() => void) | null;
-};
-
 export const cancelSpeech = () => {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 };
 
-const getVoiceForLanguage = (lang: string) => {
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length === 0) {
-    return null;
-  }
-
-  const exactMatch = voices.find((voice) => voice.lang.toLowerCase() === lang.toLowerCase());
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const prefix = lang.split('-')[0]?.toLowerCase();
-  return voices.find((voice) => voice.lang.toLowerCase().startsWith(prefix)) ?? null;
-};
-
-export const speakText = async (text: string, lang = 'en-US'): Promise<SpeechController | null> => {
-  if (!('speechSynthesis' in window)) {
-    return null;
-  }
-
-  cancelSpeech();
-
-  return new Promise((resolve) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.voice = getVoiceForLanguage(lang);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-
-    const controller: SpeechController = {
-      onended: null,
-      pause: () => {
-        window.speechSynthesis.cancel();
-      },
-    };
-
-    utterance.onend = () => {
-      controller.onended?.();
-    };
-
-    window.speechSynthesis.speak(utterance);
-    resolve(controller);
-  });
-};
-
-export const askAssistant = async (question: string, context: string) => {
+const getFallbackAssistantAnswer = (question: string, context: string) => {
   const normalizedQuestion = question.toLowerCase();
   const matchedEntry = FAQ_RESPONSES.find((entry) =>
     entry.keywords.some((keyword) => normalizedQuestion.includes(keyword)),
@@ -84,4 +36,37 @@ export const askAssistant = async (question: string, context: string) => {
   }
 
   return `Please follow the session guidelines carefully. ${context}. If you are unsure, stay visible on camera, speak clearly, and continue with the interview.`;
+};
+
+export const askAssistant = async (question: string, context: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/sarvam/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        systemPrompt:
+          'You are a concise session assistant for a student emotional check-in app. Answer only about setup, consent, recording, speaking clearly, visibility on camera, interview flow, and report sharing. Keep responses short, supportive, and practical. If the user asks something unrelated, redirect them to the interview instructions.',
+        messages: [
+          {
+            role: 'user',
+            content: `Question: ${question}\n\nSession guidelines: ${context}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get assistant response.');
+    }
+
+    const data = (await response.json()) as {
+      answer?: string;
+    };
+
+    return data.answer?.trim() || getFallbackAssistantAnswer(question, context);
+  } catch {
+    return getFallbackAssistantAnswer(question, context);
+  }
 };

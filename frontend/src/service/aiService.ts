@@ -33,7 +33,7 @@ export const fetchInterviewQuestions = async (formData: FormData) => {
 
   const data = (await response.json()) as {
     questions?: string[];
-    source?: 'ai' | 'fallback';
+    source?: 'sarvam' | 'fallback';
   };
 
   return {

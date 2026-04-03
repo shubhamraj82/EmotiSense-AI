@@ -3,9 +3,10 @@ type ChatMessage = {
   content: string;
 };
 
-const CLAUDE_API_URL = process.env.CLAUDE_API_URL || 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
-const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
+const SARVAM_API_BASE_URL = process.env.SARVAM_API_BASE_URL || 'https://api.sarvam.ai';
+const SARVAM_CHAT_API_URL = process.env.SARVAM_CHAT_API_URL || `${SARVAM_API_BASE_URL}/v1/chat/completions`;
+const SARVAM_CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || 'sarvam-m';
+const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
 
 const extractJson = <T>(content: string): T => {
   const trimmed = content.trim();
@@ -21,67 +22,78 @@ const extractJson = <T>(content: string): T => {
   }
 };
 
-export const isAiConfigured = () => Boolean(CLAUDE_API_KEY);
-
-export const generateJsonFromAi = async <T>(messages: ChatMessage[]) => {
-  if (!CLAUDE_API_KEY) {
-    throw new Error('CLAUDE_API_KEY is not configured.');
+const getTextContent = (content: unknown) => {
+  if (typeof content === 'string') {
+    return content.trim();
   }
 
-  const systemPrompt = messages
-    .filter((message) => message.role === 'system')
-    .map((message) => message.content.trim())
-    .filter(Boolean)
-    .join('\n\n');
+  if (Array.isArray(content)) {
+    return content
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return entry.trim();
+        }
 
-  const userPrompt = messages
-    .filter((message) => message.role === 'user')
-    .map((message) => message.content.trim())
-    .filter(Boolean)
-    .join('\n\n');
+        if (entry && typeof entry === 'object' && 'text' in entry && typeof entry.text === 'string') {
+          return entry.text.trim();
+        }
 
-  const response = await fetch(CLAUDE_API_URL, {
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return '';
+};
+
+export const isAiConfigured = () => Boolean(SARVAM_API_KEY);
+
+export const generateTextFromAi = async (messages: ChatMessage[]) => {
+  if (!SARVAM_API_KEY) {
+    throw new Error('SARVAM_API_KEY is not configured.');
+  }
+
+  const response = await fetch(SARVAM_CHAT_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': CLAUDE_API_KEY,
-      'anthropic-version': '2023-06-01',
+      'api-subscription-key': SARVAM_API_KEY,
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: SARVAM_CHAT_MODEL,
       temperature: 0.4,
       max_tokens: 1024,
-      system: systemPrompt || undefined,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
+      messages: messages.map((message) => ({
+        role: message.role,
+        content: message.content.trim(),
+      })),
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`AI request failed: ${errorText}`);
+    throw new Error(`Sarvam chat request failed: ${errorText}`);
   }
 
   const data = (await response.json()) as {
-    content?: Array<{
-      type?: string;
-      text?: string;
+    choices?: Array<{
+      message?: {
+        content?: unknown;
+      };
     }>;
   };
 
-  const content = data.content
-    ?.filter((entry) => entry.type === 'text' && typeof entry.text === 'string')
-    .map((entry) => entry.text?.trim() || '')
-    .filter(Boolean)
-    .join('\n');
+  const content = getTextContent(data.choices?.[0]?.message?.content);
 
   if (!content) {
     throw new Error('AI response did not include content.');
   }
 
+  return content;
+};
+
+export const generateJsonFromAi = async <T>(messages: ChatMessage[]) => {
+  const content = await generateTextFromAi(messages);
   return extractJson<T>(content);
 };

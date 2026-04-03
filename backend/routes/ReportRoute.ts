@@ -229,8 +229,30 @@ const getTransporter = () => {
   const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+  const clientId = process.env.CLIENT_ID || process.env.SMTP_CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET || process.env.SMTP_CLIENT_SECRET || process.env.SMTP_PASS;
+  const refreshToken = process.env.REFRESH_TOKEN || process.env.SMTP_REFRESH_TOKEN;
 
-  if (!host || !user || !pass) {
+  if (!host || !user) {
+    return null;
+  }
+
+  if (clientId && clientSecret && refreshToken) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        type: 'OAuth2',
+        user,
+        clientId,
+        clientSecret,
+        refreshToken,
+      },
+    });
+  }
+
+  if (!pass) {
     return null;
   }
 
@@ -271,6 +293,57 @@ const buildEmailHtml = (
     <p>Stress Level: ${report.emotionalSignals.stressLevel}/5<br />Confidence Level: ${report.emotionalSignals.confidenceLevel}/5<br />Camera Comfort: ${escapeHtml(report.emotionalSignals.cameraComfort)}</p>
   </div>
 `;
+
+ReportRouter.post('/test-email', async (req: Request, res: Response) => {
+  const { to } = req.body as {
+    to?: string;
+  };
+
+  if (!to?.trim()) {
+    res.status(400).json({ error: 'Recipient email is required.' });
+    return;
+  }
+
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    res.status(503).json({
+      error: 'SMTP credentials are not configured on the backend.',
+    });
+    return;
+  }
+
+  try {
+    await transporter.verify();
+
+    await transporter.sendMail({
+      from: process.env.REPORT_SENDER_EMAIL || process.env.SMTP_USER,
+      to: to.trim(),
+      subject: 'EmotiSense SMTP test email',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+          <h2 style="margin-bottom: 8px;">EmotiSense Email Test</h2>
+          <p>This is a test email from the EmotiSense backend.</p>
+          <p>If you received this message, the SMTP configuration is working.</p>
+        </div>
+      `,
+      text: 'This is a test email from the EmotiSense backend. If you received this message, the SMTP configuration is working.',
+    });
+
+    res.status(200).json({
+      sent: true,
+      recipient: to.trim(),
+      message: 'Test email sent successfully.',
+    });
+  } catch (error) {
+    console.error('Failed to send test email', error);
+    res.status(500).json({
+      sent: false,
+      recipient: to.trim(),
+      error: error instanceof Error ? error.message : 'Failed to send test email.',
+    });
+  }
+});
 
 ReportRouter.post('/interview', async (req: Request, res: Response) => {
   const body = req.body as InterviewRequestBody;

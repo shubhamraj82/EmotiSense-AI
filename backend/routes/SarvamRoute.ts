@@ -1,5 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { isSarvamConfigured, synthesizeSpeech, transcribeAudio } from '../lib/sarvam.js';
+import { generateTextFromAi } from '../lib/ai.js';
 
 const SarvamRouter = Router();
 
@@ -70,6 +71,59 @@ SarvamRouter.post('/stt', async (req: Request, res: Response) => {
     console.error('Failed to transcribe speech with Sarvam', error);
     res.status(502).json({
       message: error instanceof Error ? error.message : 'Failed to transcribe speech.',
+    });
+  }
+});
+
+SarvamRouter.post('/chat', async (req: Request, res: Response) => {
+  const { systemPrompt, messages } = req.body as {
+    systemPrompt?: string;
+    messages?: Array<{
+      role?: 'user' | 'system';
+      content?: string;
+    }>;
+  };
+
+  const normalizedMessages = Array.isArray(messages)
+    ? messages
+        .filter(
+          (message): message is { role: 'user' | 'system'; content: string } =>
+            (message?.role === 'user' || message?.role === 'system') && typeof message.content === 'string' && Boolean(message.content.trim()),
+        )
+        .map((message) => ({
+          role: message.role,
+          content: message.content.trim(),
+        }))
+    : [];
+
+  if (!normalizedMessages.length) {
+    res.status(400).json({ message: 'At least one chat message is required.' });
+    return;
+  }
+
+  if (!isSarvamConfigured()) {
+    res.status(503).json({ message: 'Sarvam API key is not configured.' });
+    return;
+  }
+
+  try {
+    const answer = await generateTextFromAi([
+      ...(systemPrompt?.trim()
+        ? [
+            {
+              role: 'system' as const,
+              content: systemPrompt.trim(),
+            },
+          ]
+        : []),
+      ...normalizedMessages,
+    ]);
+
+    res.status(200).json({ answer });
+  } catch (error) {
+    console.error('Failed to generate text with Sarvam', error);
+    res.status(502).json({
+      message: error instanceof Error ? error.message : 'Failed to generate text.',
     });
   }
 });

@@ -148,7 +148,7 @@ Generate 8 interview questions for a live emotional and academic check-in.`,
       throw new Error('AI did not return exactly 8 questions.');
     }
 
-    res.status(200).json({ source: 'ai', questions });
+    res.status(200).json({ source: 'sarvam', questions });
   } catch (error) {
     console.error('Failed to generate AI interview questions', error);
     res.status(200).json({

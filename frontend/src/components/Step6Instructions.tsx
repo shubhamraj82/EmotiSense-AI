@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Info, AlertCircle, Volume2, VolumeX, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocale } from '../context/LocaleContext';
-import { askAssistant } from '../service/geminiService';
+import { askAssistant } from '../service/assistantService';
 import { FormData, initialFormData } from '../lib/types';
 import { getSarvamLanguageCode } from '../lib/interview';
 import { synthesizeInterviewSpeech } from '../service/sarvamService';
