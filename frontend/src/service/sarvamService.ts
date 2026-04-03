@@ -33,6 +33,7 @@ export const synthesizeInterviewSpeech = async (text: string, languageCode: stri
 export const transcribeInterviewAnswer = async (audioBlob: Blob, languageCode: string) => {
   const arrayBuffer = await audioBlob.arrayBuffer();
   const base64 = toBase64(arrayBuffer);
+  const normalizedMimeType = audioBlob.type.split(';')[0]?.trim() || 'audio/webm';
 
   const response = await fetch(`${API_BASE_URL}/api/sarvam/stt`, {
     method: 'POST',
@@ -41,7 +42,7 @@ export const transcribeInterviewAnswer = async (audioBlob: Blob, languageCode: s
     },
     body: JSON.stringify({
       audioBase64: base64,
-      mimeType: audioBlob.type || 'audio/webm',
+      mimeType: normalizedMimeType,
       languageCode,
     }),
   });

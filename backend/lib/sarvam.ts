@@ -67,8 +67,13 @@ export const transcribeAudio = async ({
 
   const audioBuffer = Buffer.from(audioBase64, 'base64');
   const formData = new FormData();
-  const blob = new Blob([audioBuffer], { type: mimeType });
-  const extension = mimeType.includes('wav') ? 'wav' : mimeType.includes('mp4') || mimeType.includes('m4a') ? 'm4a' : 'webm';
+  const normalizedMimeType = mimeType.split(';')[0]?.trim() || 'audio/webm';
+  const blob = new Blob([audioBuffer], { type: normalizedMimeType });
+  const extension = normalizedMimeType.includes('wav')
+    ? 'wav'
+    : normalizedMimeType.includes('mp4') || normalizedMimeType.includes('m4a')
+      ? 'm4a'
+      : 'webm';
 
   formData.append('file', blob, `answer.${extension}`);
   formData.append('model', SARVAM_STT_MODEL);
