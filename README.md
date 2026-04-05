@@ -615,8 +615,8 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 | Name | Role |
 |------|------|
-| **Rajshekhar** | Full-Stack Developer, Project Lead |
-| **Youval Singh** | Backend Developer (AI routes, multilingual reports) |
+| **Youval Singh** | Full-Stack Developer, Project Lead |
+| **Shubham Raj** | Backend Developer (AI routes, multilingual reports) |
 
 ---
 
