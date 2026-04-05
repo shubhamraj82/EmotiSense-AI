@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import nodemailer from 'nodemailer';
 import { generateJsonFromAi, isAiConfigured } from '../lib/ai.js';
+import { analyzeFaceFrames, FaceAnalysis, isHuggingFaceConfigured } from '../lib/huggingface.js';
 
 type TranscriptEntry = {
   id: number;
@@ -30,6 +31,7 @@ type InterviewRequestBody = {
   };
   transcript: TranscriptEntry[];
   durationSeconds: number;
+  faceFrames?: string[];
 };
 
 type InterviewReport = {
@@ -52,6 +54,7 @@ type InterviewReport = {
   communicationStyle: string;
   emotionalOverview: string;
   followUpPriority: 'low' | 'medium' | 'high';
+  faceAnalysis: FaceAnalysis;
   transcript: TranscriptEntry[];
 };
 
@@ -97,6 +100,12 @@ const REPORT_COPY: Record<
     stressLevel: string;
     confidenceLevel: string;
     cameraComfort: string;
+    faceAnalysis: string;
+    faceVisible: string;
+    dominantExpression: string;
+    engagement: string;
+    eyeContact: string;
+    observations: string;
     textTitle: (studentName: string) => string;
     fallbackSummary: (params: {
       fullName: string;
@@ -131,6 +140,12 @@ const REPORT_COPY: Record<
     stressLevel: 'Stress Level',
     confidenceLevel: 'Confidence Level',
     cameraComfort: 'Camera Comfort',
+    faceAnalysis: 'Face Analysis',
+    faceVisible: 'Face Visible',
+    dominantExpression: 'Dominant Expression',
+    engagement: 'Engagement',
+    eyeContact: 'Eye Contact',
+    observations: 'Observations',
     textTitle: (studentName) => `EmotiSense Interview Report for ${studentName}`,
     fallbackSummary: ({ fullName, durationMinutes, preferredLanguage, answeredQuestions, engagementScore, confidenceLevel, stressLevel }) =>
       `${fullName} completed a ${durationMinutes}-minute AI interview in ${preferredLanguage}. The student answered ${answeredQuestions} prompts with an overall engagement score of ${engagementScore}/100. Responses suggest a current confidence level of ${confidenceLevel}/5 and self-reported stress level of ${stressLevel}/5.`,
@@ -167,6 +182,12 @@ const REPORT_COPY: Record<
     stressLevel: 'तनाव स्तर',
     confidenceLevel: 'आत्मविश्वास स्तर',
     cameraComfort: 'कैमरा सहजता',
+    faceAnalysis: 'चेहरे का विश्लेषण',
+    faceVisible: 'चेहरा स्पष्ट दिखा',
+    dominantExpression: 'प्रमुख अभिव्यक्ति',
+    engagement: 'सहभागिता',
+    eyeContact: 'आंखों का संपर्क',
+    observations: 'अवलोकन',
     textTitle: (studentName) => `${studentName} के लिए EmotiSense साक्षात्कार रिपोर्ट`,
     fallbackSummary: ({ fullName, durationMinutes, preferredLanguage, answeredQuestions, engagementScore, confidenceLevel, stressLevel }) =>
       `${fullName} ने ${preferredLanguage} में ${durationMinutes} मिनट का AI साक्षात्कार पूरा किया। छात्र/छात्रा ने ${answeredQuestions} प्रश्नों के उत्तर दिए और कुल सहभागिता स्कोर ${engagementScore}/100 रहा। उत्तरों से वर्तमान आत्मविश्वास स्तर ${confidenceLevel}/5 और स्वयं-रिपोर्ट किया गया तनाव स्तर ${stressLevel}/5 दिखाई देता है।`,
@@ -203,6 +224,12 @@ const REPORT_COPY: Record<
     stressLevel: 'চাপের মাত্রা',
     confidenceLevel: 'আত্মবিশ্বাসের মাত্রা',
     cameraComfort: 'ক্যামেরায় স্বাচ্ছন্দ্য',
+    faceAnalysis: 'মুখাবয়ব বিশ্লেষণ',
+    faceVisible: 'মুখ স্পষ্ট দেখা গেছে',
+    dominantExpression: 'প্রধান অভিব্যক্তি',
+    engagement: 'সম্পৃক্ততা',
+    eyeContact: 'চোখের যোগাযোগ',
+    observations: 'পর্যবেক্ষণ',
     textTitle: (studentName) => `${studentName}-এর জন্য EmotiSense সাক্ষাৎকার প্রতিবেদন`,
     fallbackSummary: ({ fullName, durationMinutes, preferredLanguage, answeredQuestions, engagementScore, confidenceLevel, stressLevel }) =>
       `${fullName} ${preferredLanguage} ভাষায় ${durationMinutes} মিনিটের AI সাক্ষাৎকার সম্পন্ন করেছে। শিক্ষার্থী ${answeredQuestions}টি প্রশ্নের উত্তর দিয়েছে এবং সামগ্রিক সম্পৃক্ততা স্কোর ${engagementScore}/100। উত্তরে বর্তমান আত্মবিশ্বাসের মাত্রা ${confidenceLevel}/5 এবং স্ব-প্রতিবেদিত চাপের মাত্রা ${stressLevel}/5 বোঝা যায়।`,
@@ -239,6 +266,12 @@ const REPORT_COPY: Record<
     stressLevel: 'ଚାପ ସ୍ତର',
     confidenceLevel: 'ଆତ୍ମବିଶ୍ୱାସ ସ୍ତର',
     cameraComfort: 'କ୍ୟାମେରା ସୁବିଧାବୋଧ',
+    faceAnalysis: 'ମୁହଁ ବିଶ୍ଳେଷଣ',
+    faceVisible: 'ମୁହଁ ସ୍ପଷ୍ଟ ଦେଖାଗଲା',
+    dominantExpression: 'ମୁଖ୍ୟ ଅଭିବ୍ୟକ୍ତି',
+    engagement: 'ସହଭାଗୀତା',
+    eyeContact: 'ଚକ୍ଷୁ ସମ୍ପର୍କ',
+    observations: 'ପର୍ଯ୍ୟବେକ୍ଷଣ',
     textTitle: (studentName) => `${studentName} ପାଇଁ EmotiSense ସାକ୍ଷାତ୍କାର ରିପୋର୍ଟ`,
     fallbackSummary: ({ fullName, durationMinutes, preferredLanguage, answeredQuestions, engagementScore, confidenceLevel, stressLevel }) =>
       `${fullName} ${preferredLanguage} ଭାଷାରେ ${durationMinutes} ମିନିଟ୍‌ର AI ସାକ୍ଷାତ୍କାର ସମାପ୍ତ କରିଛନ୍ତି। ଛାତ୍ର/ଛାତ୍ରୀ ${answeredQuestions}ଟି ପ୍ରଶ୍ନର ଉତ୍ତର ଦେଇଛନ୍ତି ଏବଂ ମୋଟ ସଂଲଗ୍ନତା ସ୍କୋର ${engagementScore}/100 ରହିଛି। ଉତ୍ତରଗୁଡ଼ିକରୁ ବର୍ତ୍ତମାନର ଆତ୍ମବିଶ୍ୱାସ ସ୍ତର ${confidenceLevel}/5 ଏବଂ ସ୍ୱୟଂ-ଜଣାଇଥିବା ଚାପ ସ୍ତର ${stressLevel}/5 ବୁଝାଯାଏ।`,
@@ -275,6 +308,12 @@ const REPORT_COPY: Record<
     stressLevel: 'Stress Level',
     confidenceLevel: 'Confidence Level',
     cameraComfort: 'Camera Comfort',
+    faceAnalysis: 'Face Analysis',
+    faceVisible: 'Face Visible',
+    dominantExpression: 'Dominant Expression',
+    engagement: 'Engagement',
+    eyeContact: 'Eye Contact',
+    observations: 'Observations',
     textTitle: (studentName) => `EmotiSense Interview Report for ${studentName}`,
     fallbackSummary: ({ fullName, durationMinutes, preferredLanguage, answeredQuestions, engagementScore, confidenceLevel, stressLevel }) =>
       `${fullName} completed a ${durationMinutes}-minute AI interview in ${preferredLanguage}. The student answered ${answeredQuestions} prompts with an overall engagement score of ${engagementScore}/100. Responses suggest a current confidence level of ${confidenceLevel}/5 and self-reported stress level of ${stressLevel}/5.`,
@@ -457,6 +496,14 @@ const buildSummary = (body: InterviewRequestBody): InterviewReport => {
           ? reportLanguage.emotionalLowConfidence
           : reportLanguage.emotionalStable,
     followUpPriority: formData.stressLevel >= 4 || formData.confidenceLevel <= 2 ? 'high' : totalWords < 40 ? 'medium' : 'low',
+    faceAnalysis: {
+      faceVisible: false,
+      dominantExpression: 'Not available',
+      engagement: 'Not available',
+      eyeContact: 'Not available',
+      observations: ['Facial analysis was not available for this session.'],
+      reportSummary: 'Facial analysis was not available for this session.',
+    },
     transcript,
   };
 };
@@ -520,9 +567,15 @@ const buildAiReport = async (body: InterviewRequestBody): Promise<InterviewRepor
       data.followUpPriority === 'low' || data.followUpPriority === 'medium' || data.followUpPriority === 'high'
         ? data.followUpPriority
         : fallback.followUpPriority,
+    faceAnalysis: fallback.faceAnalysis,
     transcript,
   };
 };
+
+const appendFaceAnalysis = (report: InterviewReport, faceAnalysis: FaceAnalysis): InterviewReport => ({
+  ...report,
+  faceAnalysis,
+});
 
 const getTransporter = () => {
   const host = process.env.SMTP_HOST;
@@ -594,6 +647,11 @@ const buildEmailHtml = (
     <p style="text-transform: capitalize;">${escapeHtml(report.followUpPriority)}</p>
     <h3>${escapeHtml(copy.emotionalSignals)}</h3>
     <p>${escapeHtml(copy.stressLevel)}: ${report.emotionalSignals.stressLevel}/5<br />${escapeHtml(copy.confidenceLevel)}: ${report.emotionalSignals.confidenceLevel}/5<br />${escapeHtml(copy.cameraComfort)}: ${escapeHtml(report.emotionalSignals.cameraComfort)}</p>
+    <h3>${escapeHtml(copy.faceAnalysis)}</h3>
+    <p>${escapeHtml(report.faceAnalysis.reportSummary)}</p>
+    <p>${escapeHtml(copy.faceVisible)}: ${report.faceAnalysis.faceVisible ? 'Yes' : 'No'}<br />${escapeHtml(copy.dominantExpression)}: ${escapeHtml(report.faceAnalysis.dominantExpression)}<br />${escapeHtml(copy.engagement)}: ${escapeHtml(report.faceAnalysis.engagement)}<br />${escapeHtml(copy.eyeContact)}: ${escapeHtml(report.faceAnalysis.eyeContact)}</p>
+    <h4>${escapeHtml(copy.observations)}</h4>
+    <ul>${report.faceAnalysis.observations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
   </div>
 `;
 };
@@ -673,6 +731,16 @@ ReportRouter.post('/interview', async (req: Request, res: Response) => {
       console.error('Failed to generate AI report, using fallback summary', error);
     }
   }
+
+  if (isHuggingFaceConfigured() && Array.isArray(body.faceFrames) && body.faceFrames.length > 0) {
+    try {
+      const faceAnalysis = await analyzeFaceFrames(body.faceFrames.slice(0, 5));
+      report = appendFaceAnalysis(report, faceAnalysis);
+    } catch (error) {
+      console.error('Failed to generate face analysis, using fallback summary', error);
+    }
+  }
+
   const recipients = [body.formData.parentEmail, body.formData.mentorEmail];
   const transporter = getTransporter();
 
@@ -716,6 +784,17 @@ ReportRouter.post('/interview', async (req: Request, res: Response) => {
         report.emotionalOverview,
         '',
         `${emailCopy.followUpPriority}: ${report.followUpPriority}`,
+        '',
+        `${emailCopy.faceAnalysis}:`,
+        report.faceAnalysis.reportSummary,
+        '',
+        `${emailCopy.faceVisible}: ${report.faceAnalysis.faceVisible ? 'Yes' : 'No'}`,
+        `${emailCopy.dominantExpression}: ${report.faceAnalysis.dominantExpression}`,
+        `${emailCopy.engagement}: ${report.faceAnalysis.engagement}`,
+        `${emailCopy.eyeContact}: ${report.faceAnalysis.eyeContact}`,
+        '',
+        `${emailCopy.observations}:`,
+        ...report.faceAnalysis.observations.map((item) => `- ${item}`),
       ].join('\n'),
     });
 

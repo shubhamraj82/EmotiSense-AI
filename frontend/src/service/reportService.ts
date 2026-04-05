@@ -6,6 +6,15 @@ export type TranscriptEntry = {
   answer: string;
 };
 
+export type FaceAnalysis = {
+  faceVisible: boolean;
+  dominantExpression: string;
+  engagement: string;
+  eyeContact: string;
+  observations: string[];
+  reportSummary: string;
+};
+
 export type InterviewReportResponse = {
   report: {
     student: {
@@ -27,6 +36,7 @@ export type InterviewReportResponse = {
     communicationStyle: string;
     emotionalOverview: string;
     followUpPriority: 'low' | 'medium' | 'high';
+    faceAnalysis: FaceAnalysis;
     transcript: TranscriptEntry[];
   };
   email: {
@@ -43,6 +53,7 @@ export const submitInterviewReport = async (payload: {
   formData: FormData;
   transcript: TranscriptEntry[];
   durationSeconds: number;
+  faceFrames?: string[];
 }) => {
   const response = await fetch(`${API_BASE_URL}/api/reports/interview`, {
     method: 'POST',

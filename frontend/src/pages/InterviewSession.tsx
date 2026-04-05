@@ -43,6 +43,35 @@ const getAudioRecorderOptions = (): MediaRecorderOptions | undefined => {
   return undefined;
 };
 
+const captureFaceFrames = async (video: HTMLVideoElement, count: number) => {
+  if (!video.videoWidth || !video.videoHeight) {
+    return [] as string[];
+  }
+
+  const canvas = document.createElement('canvas');
+  const scale = Math.min(1, 640 / video.videoWidth);
+  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    return [] as string[];
+  }
+
+  const frames: string[] = [];
+
+  for (let index = 0; index < count; index += 1) {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    frames.push(canvas.toDataURL('image/jpeg', 0.72));
+
+    if (index < count - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+    }
+  }
+
+  return frames;
+};
+
 export default function InterviewSession() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -398,6 +427,7 @@ export default function InterviewSession() {
   const handleEndInterview = async () => {
     const answer = await transcribeCurrentAnswer();
     const finalizedTranscript = buildTranscriptSnapshot(answer);
+    const sampledFaceFrames = videoRef.current ? await captureFaceFrames(videoRef.current, 3) : [];
     setTranscript(finalizedTranscript);
     cancelSpeech();
     currentAudioRef.current?.pause();
@@ -414,6 +444,7 @@ export default function InterviewSession() {
         formData,
         transcript: finalizedTranscript,
         durationSeconds: elapsedSeconds,
+        faceFrames: sampledFaceFrames,
       });
 
       setReportStatus(response.email.sent ? 'sent' : 'error');
