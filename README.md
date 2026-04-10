@@ -45,7 +45,7 @@ Everything — the UI, questions, and the final report — adapts to the student
 
 ## Live Demo
 
-> _Add your deployment URL here once hosted._
+> https://www.loom.com/share/1c2af5311d4c454b92705b38c1c85f03
 
 ---
 
@@ -616,7 +616,11 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 | Name | Role |
 |------|------|
 | **Youval Singh** | Full-Stack Developer, Project Lead |
-| **Shubham Raj** | Backend Developer (AI routes, multilingual reports) |
+| **Shubham Raj** | Backend Developer (AI routes, multilingual reports), Frontend |
+| **Soumyadeep Mitra** | Frontend Developer |
+| **Nikhil Tripathi** | Report, PPT, Figma Design |
+| **Aman Anand** | Report, PPT, UI integration |
+
 
 ---
 
